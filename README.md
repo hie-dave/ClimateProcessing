@@ -1,5 +1,7 @@
 # LPJ-Guess Climate Data Pre-Processor
 
+[![Build](https://github.com/hie-dave/ClimateProcessing/actions/workflows/build-test.yml/badge.svg?branch=master)](https://github.com/hie-dave/ClimateProcessing/actions)
+
 This is a CLI app which generates a set of scripts intended to be run on a HPC,
 which process a climate dataset for use with LPJ-Guess.
 
