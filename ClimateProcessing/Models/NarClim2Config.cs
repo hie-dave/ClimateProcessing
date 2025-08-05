@@ -22,7 +22,7 @@ public class NarClim2Config : ProcessingConfig
     public IEnumerable<string>? RCMs { get; set; }
 
     /// <inheritdoc /> 
-    public override IEnumerable<IClimateDataset> CreateDatasets()
+    public override IEnumerable<NarClim2Dataset> CreateDatasets()
     {
         IEnumerable<NarClim2Domain> domains = GetDomains();
         IEnumerable<NarClim2GCM> gcms = GetGCMs();

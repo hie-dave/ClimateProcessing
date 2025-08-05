@@ -33,21 +33,19 @@ public class NarClim2ConfigTests
     {
         var config = CreateValidConfig();
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         var expectedCount = Enum.GetValues<NarClim2Domain>().Length *
                             Enum.GetValues<NarClim2GCM>().Length *
                             Enum.GetValues<NarClim2Experiment>().Length *
                             Enum.GetValues<NarClim2RCM>().Length;
         Assert.Equal(expectedCount, datasets.Count);
-        Assert.All(datasets, ds => Assert.IsType<NarClim2Dataset>(ds));
-        List<NarClim2Dataset> narClim2Datasets = datasets.Cast<NarClim2Dataset>().ToList();
 
         foreach (NarClim2Domain domain in Enum.GetValues<NarClim2Domain>())
             foreach (NarClim2GCM gcm in Enum.GetValues<NarClim2GCM>())
                 foreach (NarClim2Experiment experiment in Enum.GetValues<NarClim2Experiment>())
                     foreach (NarClim2RCM rcm in Enum.GetValues<NarClim2RCM>())
-                        Assert.Contains(narClim2Datasets, ds =>
+                        Assert.Contains(datasets, ds =>
                             ds.Domain == domain &&
                             ds.GCM == gcm &&
                             ds.Experiment == experiment &&
@@ -62,11 +60,10 @@ public class NarClim2ConfigTests
         NarClim2Config config = CreateValidConfig();
         config.Domains = [NarClim2Constants.DomainNames.ToString(domain)];
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         Assert.NotEmpty(datasets);
-        Assert.All(datasets, ds => Assert.IsType<NarClim2Dataset>(ds));
-        Assert.All(datasets, ds => Assert.Equal(domain, ((NarClim2Dataset)ds).Domain));
+        Assert.All(datasets, ds => Assert.Equal(domain, ds.Domain));
     }
 
     [Theory]
@@ -80,11 +77,10 @@ public class NarClim2ConfigTests
         NarClim2Config config = CreateValidConfig();
         config.GCMs = [NarClim2Constants.GCMNames.ToString(gcm)];
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         Assert.NotEmpty(datasets);
-        Assert.All(datasets, ds => Assert.IsType<NarClim2Dataset>(ds));
-        Assert.All(datasets, ds => Assert.Equal(gcm, ((NarClim2Dataset)ds).GCM));
+        Assert.All(datasets, ds => Assert.Equal(gcm, ds.GCM));
     }
 
     [Theory]
@@ -96,11 +92,10 @@ public class NarClim2ConfigTests
         NarClim2Config config = CreateValidConfig();
         config.Experiments = [NarClim2Constants.ExperimentNames.ToString(experiment)];
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         Assert.NotEmpty(datasets);
-        Assert.All(datasets, ds => Assert.IsType<NarClim2Dataset>(ds));
-        Assert.All(datasets, ds => Assert.Equal(experiment, ((NarClim2Dataset)ds).Experiment));
+        Assert.All(datasets, ds => Assert.Equal(experiment, ds.Experiment));
     }
 
     [Theory]
@@ -111,10 +106,10 @@ public class NarClim2ConfigTests
         NarClim2Config config = CreateValidConfig();
         config.RCMs = [NarClim2Constants.RCMNames.ToString(rcm)];
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         Assert.NotEmpty(datasets);
-        Assert.All(datasets, ds => Assert.Equal(rcm, Assert.IsType<NarClim2Dataset>(ds).RCM));
+        Assert.All(datasets, ds => Assert.Equal(rcm, ds.RCM));
     }
 
     [Theory]
@@ -132,10 +127,10 @@ public class NarClim2ConfigTests
         config.Experiments = [NarClim2Constants.ExperimentNames.ToString(experiment)];
         config.RCMs = [NarClim2Constants.RCMNames.ToString(rcm)];
 
-        List<IClimateDataset> datasets = config.CreateDatasets().ToList();
+        List<NarClim2Dataset> datasets = config.CreateDatasets().ToList();
 
         Assert.Single(datasets);
-        NarClim2Dataset dataset = Assert.IsType<NarClim2Dataset>(datasets.First());
+        NarClim2Dataset dataset = datasets.First();
         Assert.Equal(domain, dataset.Domain);
         Assert.Equal(gcm, dataset.GCM);
         Assert.Equal(experiment, dataset.Experiment);
