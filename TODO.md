@@ -1,5 +1,8 @@
 # TODO
 
+- Add concrete usage example to README
+- Generate code coverage for unit tests
+
 ## Refactor ScriptGenerator
 
 ### Extract an IFileWriter interface
