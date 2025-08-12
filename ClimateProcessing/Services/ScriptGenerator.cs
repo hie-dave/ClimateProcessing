@@ -558,15 +558,14 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// Create the specified script file, and give it the required permissions.
     /// </summary>
     /// <param name="script">Path to a script file.</param>
-    /// <exception cref="PlatformNotSupportedException">Thrown when the current operating system is not supported.</exception>
     private static async Task InitialiseScript(string script)
     {
         await File.WriteAllTextAsync(script, string.Empty);
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-            File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        else
-            // Windows not supported.
-            throw new PlatformNotSupportedException();
+#if !WINDOWS
+#pragma warning disable CA1416
+        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+#pragma warning restore CA1416
+#endif
     }
 
     /// <summary>

@@ -11,6 +11,7 @@ using Xunit.Abstractions;
 
 using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
+using Moq;
 
 namespace ClimateProcessing.Tests.Services;
 
@@ -571,6 +572,28 @@ public class ScriptGeneratorTests : IDisposable
         _config.Version = version;
         ScriptGenerator generator = new ScriptGenerator(_config);
         Assert.ThrowsAny<ArgumentException>(() => generator.GetTargetConfig(variable));
+    }
+
+    [Theory]
+    [InlineData(ClimateVariable.Temperature)]
+    [InlineData(ClimateVariable.Precipitation)]
+    public void GetTargetConfig_ThrowsForInvalidVersion(ClimateVariable variable)
+    {
+        _config.Version = (ModelVersion)1001;
+        ScriptGenerator generator = new ScriptGenerator(_config);
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => generator.GetTargetConfig(variable));
+        Assert.Contains("Invalid version", ex.Message);
+    }
+
+    [Fact]
+    public async Task GenerateVariableMergeScript_ThrowsForInvalidVariable()
+    {
+        ScriptGenerator generator = new ScriptGenerator(_config);
+        ClimateVariable variable = (ClimateVariable)666;
+        Mock<IClimateDataset> mockDataset = new();
+        mockDataset.Setup(d => d.GetVariableInfo(variable)).Returns(new VariableInfo("x", "y"));
+        ArgumentException ex = await Assert.ThrowsAnyAsync<ArgumentException>(async () => await generator.GenerateVariableMergeScript(mockDataset.Object, variable));
+        Assert.Equal("No configuration found for variable 666", ex.Message);
     }
 
     [Theory]

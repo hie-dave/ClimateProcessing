@@ -29,9 +29,8 @@ public record struct TimeStep
     {
         if (Hours < 24)
             return $"{Hours}hour";
-        else if (Hours == 24)
-            return "day";
-        else
-            return $"{Hours / 24}day";
+        // Time steps > 24 hours are not supported. This is guaranteed by the
+        // Hours setter.
+        return "day";
     }
 }

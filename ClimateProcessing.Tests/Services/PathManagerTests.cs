@@ -98,4 +98,10 @@ public class PathManagerTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "output", datasetDir)));
         Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "tmp", datasetDir)));
     }
+
+    [Fact]
+    public void GetBasePath_ThrowsForInvalidPathType()
+    {
+        Assert.Throws<ArgumentException>(() => _pathManager.GetBasePath((PathType)123));
+    }
 }
