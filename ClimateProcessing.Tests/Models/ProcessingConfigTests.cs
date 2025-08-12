@@ -56,8 +56,19 @@ public class ProcessingConfigTests : IDisposable
     {
         _config.CompressOutput = true;
         _config.CompressionLevel = level;
-        var ex = Assert.Throws<ArgumentException>(() => _config.ValidateBasicParameters());
+        var ex = Assert.Throws<ArgumentException>(_config.ValidateBasicParameters);
         Assert.Equal("Compression level must be between 1 and 9", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    public void ValidateBasicParameters_WithInvalidCompressionLevel_CompressionDisabled_DoesNotThrow(int level)
+    {
+        _config.CompressOutput = false;
+        _config.CompressionLevel = level;
+        var exception = Record.Exception(_config.ValidateBasicParameters);
+        Assert.Null(exception);
     }
 
     [Fact]
@@ -150,6 +161,14 @@ public class ProcessingConfigTests : IDisposable
     }
 
     [Fact]
+    public void ValidateTimeStepSettings_InvalidVersion_ThrowsArgumentException()
+    {
+        _config.Version = (ModelVersion)16;
+        ArgumentException ex = Assert.Throws<ArgumentException>(_config.ValidateTimeStepSettings);
+        Assert.Equal("Invalid version: 16", ex.Message);
+    }
+
+    [Fact]
     public void Validate_WithValidConfig_DoesNotThrow()
     {
         var tempGridFile = Path.Combine(_tempDir, "test.grid");
@@ -162,6 +181,26 @@ public class ProcessingConfigTests : IDisposable
 
         var exception = Record.Exception(() => _config.Validate());
         Assert.Null(exception);
+    }
+
+    [Theory]
+    [InlineData(EmailNotificationType.Aborted)]
+    [InlineData(EmailNotificationType.After)]
+    [InlineData(EmailNotificationType.Before)]
+    public void ValidateEmailSettings_InvalidFlagCombination_ThrowsArgumentException(EmailNotificationType type)
+    {
+        _config.EmailNotifications = EmailNotificationType.None | type;
+        ArgumentException ex = Assert.Throws<ArgumentException>(_config.ValidateEmailSettings);
+        Assert.Contains("none", ex.Message);
+    }
+
+    [Fact]
+    public void ValidateEmailSettings_NoEmail_ThrowsArgumentException()
+    {
+        _config.Email = string.Empty;
+        _config.EmailNotifications = EmailNotificationType.After;
+        ArgumentException ex = Assert.Throws<ArgumentException>(_config.ValidateEmailSettings);
+        Assert.Contains("email", ex.Message);
     }
 
     public void Dispose()

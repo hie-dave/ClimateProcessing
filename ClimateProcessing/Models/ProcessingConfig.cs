@@ -144,7 +144,7 @@ public abstract class ProcessingConfig
         if (EmailNotifications.HasFlag(EmailNotificationType.None))
         {
             // Ensure that "none" is not combined with other values.
-            if ((EmailNotifications & EmailNotificationType.None) != EmailNotificationType.None)
+            if ((EmailNotifications ^ EmailNotificationType.None) != 0)
                 throw new ArgumentException("Cannot combine \"none\" and other values for email notifications.");
 
             // No email notifications are required, so no further validation is
