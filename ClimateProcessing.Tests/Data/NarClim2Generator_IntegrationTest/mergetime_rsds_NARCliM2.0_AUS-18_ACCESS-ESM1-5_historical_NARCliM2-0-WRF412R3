@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#PBS -N mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+#PBS -o @#OUTPUT_DIRECTORY#@/logs/mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3.log
+#PBS -P 
+#PBS -q normal
+#PBS -l walltime=12:00:00
+#PBS -l ncpus=1
+#PBS -l mem=4GB
+#PBS -l jobfs=128GB
+#PBS -j oe
+
+# This script was automatically generated. Do not modify.
+
+# Exit immediately if any command fails.
+set -euo pipefail
+
+# Load required modules.
+module purge
+module load pbs netcdf cdo nco python3/3.12.1
+
+# Create temporary directory and cd into it.
+WORK_DIR="$(mktemp -d -p "${PBS_JOBFS}")"
+cd "${WORK_DIR}"
+
+# Delete the temporary directory on exit.
+trap 'cd "${PBS_JOBFS}"; rm -rf "${WORK_DIR}"' EXIT
+
+# Stream all output to a log file without buffering.
+STREAM_FILE="@#OUTPUT_DIRECTORY#@/streams/mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3.log"
+rm -f "${STREAM_FILE}"
+exec 1> >(tee -a "${STREAM_FILE}") 2>&1
+
+# Print a log message.
+log() {
+    echo "[$(date)] $*"
+}
+
+# File paths.
+IN_DIR="@#INPUT_DIRECTORY#@/CMIP6/DD/AUS-18/NSW-Government/ACCESS-ESM1-5/historical/r6i1p1f1/NARCliM2-0-WRF412R3/v1-r1/mon/rsds/latest"
+OUT_FILE="@#OUTPUT_DIRECTORY#@/tmp/ACCESS-ESM1-5/historical/NARCliM2-0-WRF412R3/rsds_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc"
+
+# Correct rlon values, which are incorrect in some narclim2 files.
+RLON_VALUES_FILE="@#INPUT_DIRECTORY#@/../rlon-correction-AUS-18.txt"
+CORRECTED_RLON_DIR="${WORK_DIR}/corrected_rlon"
+mkdir -p "${CORRECTED_RLON_DIR}"
+log "Correcting rlon values..."
+for FILE in "${IN_DIR}"/*.nc; do
+    log "Correcting rlon values in file $(basename "${FILE}")..."
+    setvar.py --in-file "${FILE}" --out-file "${CORRECTED_RLON_DIR}/$(basename "${FILE}")" --values-file "${RLON_VALUES_FILE}" --var rlon
+done
+IN_DIR="${CORRECTED_RLON_DIR}"
+log "Successfully corrected all rlon values."
+
+# Perform corrective operations on input files:
+# - Unpack data.
+for FILE in "${IN_DIR}"/*.nc
+do
+    cdo -L -O -v -z zip1  -unpack  "${FILE}" "${REMAP_DIR}/$(basename "${FILE}")"
+done
+IN_DIR="${REMAP_DIR}"
+
+log "Merging files..."
+cdo -L -O -v -z zip1 mergetime "${IN_DIR}"/*.nc "${OUT_FILE}"
+log "All files merged successfully."
+

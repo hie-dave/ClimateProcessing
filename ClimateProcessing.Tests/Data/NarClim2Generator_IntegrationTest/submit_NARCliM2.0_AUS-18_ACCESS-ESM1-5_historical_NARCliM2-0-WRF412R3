@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Job submission script for: NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+
+# This script was automatically generated. Do not modify.
+
+# Exit immediately if any command fails.
+set -euo pipefail
+
+mkdir -p "@#OUTPUT_DIRECTORY#@"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+VPD_DEPS="${JOB_ID}"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${JOB_ID}"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+VPD_DEPS="${VPD_DEPS}:${JOB_ID}"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+VPD_DEPS="${VPD_DEPS}:${JOB_ID}"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+
+JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+
+JOB_ID="$(qsub -W depend=afterok:"${VPD_DEPS}" "@#OUTPUT_DIRECTORY#@/scripts/calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+
+JOB_ID="$(qsub -W depend=afterok:"${ALL_JOBS}" "@#OUTPUT_DIRECTORY#@/scripts/cleanup_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
+
+echo "Job submission complete for dataset NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3. Job ID: ${JOB_ID}"
+

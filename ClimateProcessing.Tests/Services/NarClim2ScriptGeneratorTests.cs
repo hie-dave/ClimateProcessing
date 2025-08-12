@@ -4,6 +4,10 @@ using Moq;
 using ClimateProcessing.Services;
 using ClimateProcessing.Tests.Mocks;
 
+using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
+using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
+using Xunit.Abstractions;
+
 namespace ClimateProcessing.Tests.Services;
 
 public class NarClim2ScriptGeneratorTests : IDisposable
@@ -12,9 +16,11 @@ public class NarClim2ScriptGeneratorTests : IDisposable
     private readonly string outputDirectory;
     private readonly NarClim2Config config;
     private readonly NarClim2ScriptGenerator generator;
+    private readonly ITestOutputHelper outputHelper;
 
-    public NarClim2ScriptGeneratorTests()
+    public NarClim2ScriptGeneratorTests(ITestOutputHelper outputHelper)
     {
+        this.outputHelper = outputHelper;
         outputDirectory = Path.Combine(Path.GetTempPath(), $"{outputDirectoryPrefix}_{Guid.NewGuid()}");
         Directory.CreateDirectory(outputDirectory);
 
@@ -94,21 +100,97 @@ public class NarClim2ScriptGeneratorTests : IDisposable
     {
         IClimateDataset mockDataset = new StaticMockDataset("/input");
 
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             generator.GenerateVariableMergeScript(mockDataset, ClimateVariable.ShortwaveRadiation));
     }
 
     [Fact]
-    public async Task GenerateScriptsAsync_WithValidNarClim2Dataset_GeneratesCompleteScript()
+    public async Task GenerateScriptsAsync_WithNoInputFileTree_Throws()
     {
         NarClim2Dataset dataset = new NarClim2Dataset("/path/to/narclim2");
 
         // Attempting to generate scripts without setting up an appropriate
         // file tree is going to result in an exception.
         // TODO: is it worth setting up a suitable file tree?
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateScriptsAsync(dataset));
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await generator.GenerateScriptsAsync(dataset));
 
         Assert.NotNull(ex);
         Assert.Contains("No input files found for variable", ex.Message);
+    }
+
+    [Fact]
+    public async Task NarClim2Generator_IntegrationTest()
+    {
+        // Create a dummy file tree for a single variable.
+        using TempDirectory narclimDirectory = TempDirectory.Create("GenerateScriptsAsync_WithDummyFileTree_GeneratesValidScript");
+        string relPath = "CMIP6/DD/AUS-18/NSW-Government/ACCESS-ESM1-5/historical/r6i1p1f1/NARCliM2-0-WRF412R3/v1-r1/mon/{0}/latest";
+
+        string[] vars = ["tas", "pr", "ps", "rsds", "huss", "sfcWind"];
+        Dictionary<string, TempDirectory> dirs = new(
+            vars.Select(v => new KeyValuePair<string, TempDirectory>(v,
+                TempDirectory.Relative(narclimDirectory, string.Format(relPath, v)))));
+        using DisposableEnumerable<TempDirectory> tempDirectories = new(dirs.Values);
+
+        string[] fileNames = [
+            "{0}_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195112.nc",
+            "{0}_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195201-195212.nc"
+        ];
+        using DisposableEnumerable<TempFile> files = new(vars.SelectMany(v =>
+            fileNames.Select(name => new TempFile(dirs[v].AbsolutePath, string.Format(name, v)))));
+
+        NarClim2Dataset dataset = new NarClim2Dataset(narclimDirectory.AbsolutePath);
+        string script = await generator.GenerateScriptsAsync(dataset);
+        Assert.NotNull(script);
+
+        AssertEmptyDirectory(Path.Combine(outputDirectory, "logs"));
+        AssertEmptyDirectory(Path.Combine(outputDirectory, "streams"));
+        AssertEmptyDirectory(Path.Combine(outputDirectory, "output", dataset.GetOutputDirectory()));
+        AssertEmptyDirectory(Path.Combine(outputDirectory, "tmp", dataset.GetOutputDirectory()));
+
+        string scriptsDirectory = Path.Combine(outputDirectory, "scripts");
+        Assert.True(Directory.Exists(scriptsDirectory));
+        Assert.NotEmpty(Directory.EnumerateFileSystemEntries(scriptsDirectory));
+
+        string[] expectedScriptNames = [
+            "calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "cleanup_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "submit_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+        ];
+
+        Assert.Equal(expectedScriptNames.Length, Directory.EnumerateFileSystemEntries(scriptsDirectory).Count());
+
+        // Name of the directory containing this test's data files.
+        const string resourcePrefix = "NarClim2Generator_IntegrationTest";
+        foreach (string scriptName in expectedScriptNames)
+        {
+            string actualScriptPath = Path.Combine(scriptsDirectory, scriptName);
+            Assert.True(File.Exists(actualScriptPath), $"Script {actualScriptPath} does not exist.");
+            string actualScript = await File.ReadAllTextAsync(actualScriptPath);
+
+            // Read expected script from resource in assembly.
+            string expectedScript = await ReadResourceAsync($"{resourcePrefix}.{scriptName}");
+            expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", outputDirectory);
+            expectedScript = expectedScript.Replace("@#INPUT_DIRECTORY#@", narclimDirectory.AbsolutePath);
+
+            // No custom error messages in xunit, apparently.
+            if (expectedScript != actualScript)
+                outputHelper.WriteLine($"Script {scriptName} is invalid");
+
+            Assert.Equal(expectedScript, actualScript);
+        }
     }
 }

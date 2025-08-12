@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#PBS -N rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+#PBS -o @#OUTPUT_DIRECTORY#@/logs/rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3.log
+#PBS -P 
+#PBS -q normal
+#PBS -l walltime=12:00:00
+#PBS -l ncpus=1
+#PBS -l mem=16GB
+#PBS -l jobfs=128GB
+#PBS -j oe
+
+# This script was automatically generated. Do not modify.
+
+# Exit immediately if any command fails.
+set -euo pipefail
+
+# Load required modules.
+module purge
+module load pbs netcdf cdo nco python3/3.12.1
+
+# Create temporary directory and cd into it.
+WORK_DIR="$(mktemp -d -p "${PBS_JOBFS}")"
+cd "${WORK_DIR}"
+
+# Delete the temporary directory on exit.
+trap 'cd "${PBS_JOBFS}"; rm -rf "${WORK_DIR}"' EXIT
+
+# Stream all output to a log file without buffering.
+STREAM_FILE="@#OUTPUT_DIRECTORY#@/streams/rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3.log"
+rm -f "${STREAM_FILE}"
+exec 1> >(tee -a "${STREAM_FILE}") 2>&1
+
+# Print a log message.
+log() {
+    echo "[$(date)] $*"
+}
+
+IN_FILE="@#OUTPUT_DIRECTORY#@/tmp/ACCESS-ESM1-5/historical/NARCliM2-0-WRF412R3/vpd_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc"
+OUT_FILE="@#OUTPUT_DIRECTORY#@/output/ACCESS-ESM1-5/historical/NARCliM2-0-WRF412R3/vpd_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc"
+log "Rechunking files..."
+ncpdq -O -a lat,lon,time --cnk_dmn lat,10 --cnk_dmn lon,10 --cnk_dmn time,5 -L4 "${IN_FILE}" "${OUT_FILE}"
+log "All files rechunked successfully."
+
+# Calculate checksum.
+log "Calculating checksum..."
+cd "@#OUTPUT_DIRECTORY#@/output"
+REL_PATH="ACCESS-ESM1-5/historical/NARCliM2-0-WRF412R3/vpd_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc"
+sha512sum "${REL_PATH}" >>"@#OUTPUT_DIRECTORY#@/output/sha512sums.txt"
+log "Checksum calculation completed successfully."
+
+# Delete temporary file.
+rm -f "${IN_FILE}"
+

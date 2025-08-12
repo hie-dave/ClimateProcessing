@@ -9,6 +9,9 @@ using System.Reflection;
 using ClimateProcessing.Configuration;
 using Xunit.Abstractions;
 
+using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
+using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
+
 namespace ClimateProcessing.Tests.Services;
 
 public class ScriptGeneratorTests : IDisposable
@@ -689,7 +692,7 @@ public class ScriptGeneratorTests : IDisposable
             string actualScript = await File.ReadAllTextAsync(actualScriptPath);
 
             // Read expected script from resource in assembly.
-            string expectedScript = await ReadResource($"{resourcePrefix}.{scriptName}");
+            string expectedScript = await ReadResourceAsync($"{resourcePrefix}.{scriptName}");
             expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", outputDirectory);
 
             // No custom error messages in xunit, apparently.
@@ -698,23 +701,5 @@ public class ScriptGeneratorTests : IDisposable
 
             Assert.Equal(expectedScript, actualScript);
         }
-    }
-
-    private async Task<string> ReadResource(string resourceName)
-    {
-        Assembly assembly = typeof(ScriptGeneratorTests).Assembly;
-        string resource = $"ClimateProcessing.Tests.Data.{resourceName}";
-        using Stream? stream = assembly.GetManifestResourceStream(resource);
-        if (stream is null)
-            throw new ArgumentException($"Resource {resource} not found.");
-
-        using StreamReader reader = new StreamReader(stream);
-        return await reader.ReadToEndAsync();
-    }
-
-    private static void AssertEmptyDirectory(string directory)
-    {
-        Assert.True(Directory.Exists(directory));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(directory));
     }
 }
