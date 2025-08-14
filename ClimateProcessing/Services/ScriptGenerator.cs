@@ -45,6 +45,11 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     private readonly VpdCalculator vpdCalculator;
 
     /// <summary>
+    /// The climate variable manager service.
+    /// </summary>
+    protected readonly ClimateVariableManager variableManager;
+
+    /// <summary>
     /// The PBS script generator service.
     /// </summary>
     protected readonly PBSWriter pbsHeavyweight;
@@ -65,43 +70,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// files used as operands for the mergetime command.
     /// </summary>
     protected const string remapDirVariable = "REMAP_DIR";
-
-    /// <summary>
-    /// List of standard variables and their output names and units.
-    /// </summary>
-    private static readonly Dictionary<ClimateVariable, string> outputNames = new()
-    {
-        { ClimateVariable.SpecificHumidity, "huss" }, // "1"
-        { ClimateVariable.SurfacePressure, "ps" }, // "Pa"
-        { ClimateVariable.ShortwaveRadiation, "rsds" }, // "W m-2"
-        { ClimateVariable.WindSpeed, "sfcWind" }, // "m s-1"
-        { ClimateVariable.Temperature, "tas" }, // "degC"
-        { ClimateVariable.Precipitation, "pr" }, // "mm"
-        { ClimateVariable.MaxTemperature, "tasmax" }, // "degC"
-        { ClimateVariable.MinTemperature, "tasmin" }, // "degC"
-    };
-
-    private static readonly Dictionary<ClimateVariable, (string units, AggregationMethod aggregation)> daveVariables = new()
-    {
-        { ClimateVariable.Temperature, ("degC", AggregationMethod.Mean) },
-        { ClimateVariable.Precipitation, ("mm", AggregationMethod.Sum) },
-        { ClimateVariable.SpecificHumidity, ("1", AggregationMethod.Mean) },
-        { ClimateVariable.SurfacePressure, ("Pa", AggregationMethod.Mean) },
-        { ClimateVariable.ShortwaveRadiation, ("W m-2", AggregationMethod.Mean) },
-        { ClimateVariable.WindSpeed, ("m s-1", AggregationMethod.Mean) }
-    };
-
-    private static readonly Dictionary<ClimateVariable, (string units, AggregationMethod aggregation)> trunkVariables = new()
-    {
-        { ClimateVariable.Temperature, ("K", AggregationMethod.Mean) },
-        { ClimateVariable.Precipitation, ("mm", AggregationMethod.Sum) },
-        { ClimateVariable.SpecificHumidity, ("1", AggregationMethod.Mean) },
-        { ClimateVariable.SurfacePressure, ("Pa", AggregationMethod.Mean) },
-        { ClimateVariable.ShortwaveRadiation, ("W m-2", AggregationMethod.Mean) },
-        { ClimateVariable.WindSpeed, ("m s-1", AggregationMethod.Mean) },
-        { ClimateVariable.MaxTemperature, ("K", AggregationMethod.Maximum) },
-        { ClimateVariable.MinTemperature, ("K", AggregationMethod.Minimum) },
-    };
 
     /// <summary>
     /// Creates a new script generator with the default file writer factory.
@@ -164,19 +132,8 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             config.VPDMethod,
             pathManager,
             fileWriterFactory);
-    }
 
-    /// <summary>
-    /// Gets the standard configuration for the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>The standard configuration.</returns>
-    private (string outName, string outUnits) GetStandardConfig(ClimateVariable variable)
-    {
-        if (!outputNames.TryGetValue(variable, out string? outName))
-            throw new ArgumentException($"No configuration found for variable {variable}");
-        string outUnits = GetTargetUnits(variable);
-        return (outName, outUnits);
+        variableManager = new ClimateVariableManager(config.Version);
     }
 
     /// <summary>
@@ -240,7 +197,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Calculate the number of timesteps to aggregate
         int stepsToAggregate = _config.OutputTimeStep.Hours / _config.InputTimeStep.Hours;
 
-        var aggregationMethod = GetAggregationMethod(variable);
+        var aggregationMethod = ClimateVariableManager.GetAggregationMethod(variable);
         var @operator = aggregationMethod.ToCdoOperator(_config.OutputTimeStep);
 
         return $"-{@operator},{stepsToAggregate}";
@@ -253,38 +210,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     private string GetCDOArgs()
     {
         return $"-L -O -v -z zip1";
-    }
-
-    internal (string, AggregationMethod) GetTargetConfig(ClimateVariable variable)
-    {
-        var variables = GetVariables();
-        if (!variables.TryGetValue(variable, out (string units, AggregationMethod _) config))
-            throw new ArgumentException($"No configuration found for variable {variable}");
-        return config;
-    }
-
-    /// <summary>
-    /// Get the target units for the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>The target units.</returns>
-    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
-    public string GetTargetUnits(ClimateVariable variable)
-    {
-        (string units, _) = GetTargetConfig(variable);
-        return units;
-    }
-
-    /// <summary>
-    /// Get the aggregation method required for the processing of the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>The aggregation method.</returns>
-    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
-    public AggregationMethod GetAggregationMethod(ClimateVariable variable)
-    {
-        (string _, AggregationMethod aggregation) = GetTargetConfig(variable);
-        return aggregation;
     }
 
     /// <summary>
@@ -328,7 +253,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Process each variable.
         Dictionary<ClimateVariable, string> mergetimeScripts = new();
         Dictionary<ClimateVariable, string> rechunkScripts = new();
-        ClimateVariable[] variables = GetVariables().Keys.ToArray();
+        IEnumerable<ClimateVariable> variables = variableManager.GetRequiredVariables();
         foreach (ClimateVariable variable in variables)
         {
             string mergetime = await GenerateVariableMergeScript(dataset, variable);
@@ -409,21 +334,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
-    /// Get the climate variables required by the version of the model specified
-    /// by the current configuration.
-    /// </summary>
-    /// <returns>The climate variables required by the model.</returns>
-    /// <exception cref="ArgumentException">Thrown when an invalid version is specified.</exception>
-    private IDictionary<ClimateVariable, (string units, AggregationMethod aggregation)> GetVariables()
-    {
-        if (_config.Version == ModelVersion.Dave)
-            return daveVariables;
-        if (_config.Version == ModelVersion.Trunk)
-            return trunkVariables;
-        throw new ArgumentException($"Invalid version: {_config.Version}");
-    }
-
-    /// <summary>
     /// Write the pre-merge commands to the specified writer.
     /// </summary>
     /// <param name="writer">The text writer.</param>
@@ -466,8 +376,8 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <returns>The path to the generated script file.</returns>
     internal async Task<string> GenerateVariableMergeScript(IClimateDataset dataset, ClimateVariable variable)
     {
-        VariableInfo varInfo = dataset.GetVariableInfo(variable);
-        (string outVar, string targetUnits) = GetStandardConfig(variable);
+        VariableInfo inputMetadata = dataset.GetVariableInfo(variable);
+        VariableInfo targetMetadata = variableManager.GetOutputRequirements(variable);
 
         // File paths.
         string inDir = dataset.GetInputFilesDirectory(variable);
@@ -488,7 +398,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
 
         // Create script directory if it doesn't already exist.
         // This should be unnecessary at this point.
-        string jobName = GetJobName("mergetime", varInfo, dataset);
+        string jobName = GetJobName("mergetime", inputMetadata, dataset);
         using IFileWriter writer = fileWriterFactory.Create(jobName);
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
@@ -509,11 +419,11 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
 
         await WritePreMerge(writer, dataset, variable);
 
-        string rename = GenerateRenameOperator(varInfo.Name, outVar);
-        string conversion = string.Join(" ", GenerateUnitConversionOperators(outVar, varInfo.Units, targetUnits, _config.InputTimeStep));
+        string rename = GenerateRenameOperator(inputMetadata.Name, targetMetadata.Name);
+        string conversion = string.Join(" ", GenerateUnitConversionOperators(targetMetadata.Name, inputMetadata.Units, targetMetadata.Units, _config.InputTimeStep));
         string aggregation = GenerateTimeAggregationOperator(variable);
         string unpack = "-unpack";
-        string remapOperator = GetRemapOperator(GetInterpolationAlgorithm(varInfo, variable));
+        string remapOperator = GetRemapOperator(GetInterpolationAlgorithm(inputMetadata, variable));
         string remap = string.IsNullOrEmpty(_config.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
         string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
         operators = Regex.Replace(operators, " +", " ");
@@ -529,9 +439,9 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             if (!string.IsNullOrEmpty(unpack))
                 await writer.WriteLineAsync("# - Unpack data.");
             if (!string.IsNullOrEmpty(rename))
-                await writer.WriteLineAsync($"# - Rename variable from {varInfo.Name} to {outVar}.");
+                await writer.WriteLineAsync($"# - Rename variable from {inputMetadata.Name} to {targetMetadata.Name}.");
             if (!string.IsNullOrEmpty(conversion))
-                await writer.WriteLineAsync($"# - Convert units from {varInfo.Units} to {targetUnits}.");
+                await writer.WriteLineAsync($"# - Convert units from {inputMetadata.Units} to {targetMetadata.Units}.");
             if (!string.IsNullOrEmpty(aggregation))
                 await writer.WriteLineAsync($"# - Aggregate data from {_config.InputTimeStep} to {_config.OutputTimeStep}.");
 
