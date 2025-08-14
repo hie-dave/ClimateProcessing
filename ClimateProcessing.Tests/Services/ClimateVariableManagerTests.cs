@@ -45,8 +45,13 @@ public class ClimateVariableManagerTests
         ClimateVariable variable,
         AggregationMethod expectedMethod)
     {
-        AggregationMethod actualMethod = ClimateVariableManager.GetAggregationMethod(variable);
-        Assert.Equal(expectedMethod, actualMethod);
+        // Test all model versions.
+        foreach (ModelVersion version in Enum.GetValues<ModelVersion>())
+        {
+            ClimateVariableManager manager = new ClimateVariableManager(version);
+            AggregationMethod actualMethod = manager.GetAggregationMethod(variable);
+            Assert.Equal(expectedMethod, actualMethod);
+        }
     }
 
     [Theory]

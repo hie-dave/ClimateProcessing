@@ -6,7 +6,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Manages climate variable requirements for different model versions.
 /// </summary>
-public class ClimateVariableManager
+public class ClimateVariableManager : IClimateVariableManager
 {
     /// <summary>
     /// List of standard variables and their output names and units.
@@ -80,12 +80,7 @@ public class ClimateVariableManager
         this.version = version;
     }
 
-    /// <summary>
-    /// Gets the output requirements for the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>The output requirements.</returns>
-    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
+    /// <inheritdoc/>
     public VariableInfo GetOutputRequirements(ClimateVariable variable)
     {
         if (!outputNames.TryGetValue(variable, out string? outName))
@@ -94,22 +89,14 @@ public class ClimateVariableManager
         return new VariableInfo(outName, outUnits);
     }
 
-    /// <summary>
-    /// Gets the set of variables required by the configured model version.
-    /// </summary>
-    /// <returns>Collection of ClimateVariable values.</returns>
+    /// <inheritdoc/>
     public IEnumerable<ClimateVariable> GetRequiredVariables()
     {
         return GetDictionary().Keys;
     }
 
-    /// <summary>
-    /// Get the aggregation method required for the processing of the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>The aggregation method.</returns>
-    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
-    public static AggregationMethod GetAggregationMethod(ClimateVariable variable)
+    /// <inheritdoc/>
+    public AggregationMethod GetAggregationMethod(ClimateVariable variable)
     {
         return aggregationMethods[variable];
     }

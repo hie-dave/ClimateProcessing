@@ -47,7 +47,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <summary>
     /// The climate variable manager service.
     /// </summary>
-    protected readonly ClimateVariableManager variableManager;
+    protected readonly IClimateVariableManager variableManager;
 
     /// <summary>
     /// The PBS script generator service.
@@ -197,7 +197,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Calculate the number of timesteps to aggregate
         int stepsToAggregate = _config.OutputTimeStep.Hours / _config.InputTimeStep.Hours;
 
-        var aggregationMethod = ClimateVariableManager.GetAggregationMethod(variable);
+        var aggregationMethod = variableManager.GetAggregationMethod(variable);
         var @operator = aggregationMethod.ToCdoOperator(_config.OutputTimeStep);
 
         return $"-{@operator},{stepsToAggregate}";
