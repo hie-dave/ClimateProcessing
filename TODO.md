@@ -5,6 +5,7 @@
 - Refactor VpdCalculator to generate equations dynamically based on the units of
   the input variables
 - Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
+- Revise unit tests for vpd calculator. Should we test the generated equations?
 
 ### ClimateVariableManager
 

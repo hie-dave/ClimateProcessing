@@ -10,7 +10,7 @@ internal class DynamicMockDataset : IClimateDataset
 {
     private readonly string inputPath;
     private readonly string outputPath;
-    private static readonly Dictionary<ClimateVariable, (string Name, string Units)> _variableInfo = new()
+    private readonly Dictionary<ClimateVariable, (string Name, string Units)> _variableInfo = new()
     {
         [ClimateVariable.Temperature] = ("tas", "K"),
         [ClimateVariable.SpecificHumidity] = ("huss", "1"),
