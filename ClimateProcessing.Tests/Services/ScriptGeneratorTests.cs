@@ -256,20 +256,7 @@ public class ScriptGeneratorTests : IDisposable
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
 
         // No unquoted variable references
-        ValidateScript(scriptContent);
-    }
-
-    private void ValidateScript(string scriptContent)
-    {
-        // Every variable reference uses braces.
-        Assert.DoesNotMatch(@"[^\\]\$[A-Za-z]", scriptContent);
-
-        // No double-escaped braces from string interpolation
-        Assert.DoesNotMatch(@"[^\\]\$\{\{", scriptContent);
-        Assert.DoesNotMatch(@"[^\\]\$\{\{?[^\}]+\}\}", scriptContent);
-
-        // We can't assume that all variable referenes are quoted, because
-        // sometimes they don't need to be or shouldn't be.
+        AssertScriptValid(scriptContent);
     }
 
     [Theory]
@@ -371,7 +358,7 @@ public class ScriptGeneratorTests : IDisposable
         // TODO: assert that no additional arguments are present.
 
         // Rest of script should be valid.
-        ValidateScript(scriptContent);
+        AssertScriptValid(scriptContent);
     }
 
     [Theory]
@@ -391,75 +378,6 @@ public class ScriptGeneratorTests : IDisposable
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
 
         Assert.Contains($"-chname,'{inputName}','{expectedOutputName}'", scriptContent);
-    }
-
-    [Theory]
-    [InlineData(VPDMethod.Magnus)]
-    [InlineData(VPDMethod.Buck1981)]
-    [InlineData(VPDMethod.AlduchovEskridge1996)]
-    [InlineData(VPDMethod.AllenFAO1998)]
-    [InlineData(VPDMethod.Sonntag1990)]
-    public async Task GenerateVPDScript_GeneratesCorrectEquations(VPDMethod method)
-    {
-        NarClim2Config config = new()
-        {
-            Project = "test",
-            Queue = "normal",
-            Walltime = "01:00:00",
-            Ncpus = 1,
-            Memory = 4,
-            OutputDirectory = outputDirectory,
-            InputDirectory = "/input",
-            VPDMethod = method
-        };
-        ScriptGenerator generator = new(config);
-
-        StringWriter writer = new();
-        Mock<IFileWriter> writerMock = new();
-        writerMock.Setup(w => w.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        writerMock.Setup(w => w.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.Write(s));
-        writerMock.Setup(w => w.WriteLineAsync()).Callback(() => writer.WriteLine());
-        await generator.WriteVPDEquationsAsync(writerMock.Object, method);
-        string equationContent = writer.ToString();
-
-        // Remove comment lines.
-        string sanitised = Regex.Replace(equationContent, @"#.*\n", "");
-
-        // Ensure all lines end with a semicolon.
-        Assert.DoesNotMatch(@"[^;\r]\n", sanitised);
-
-        Assert.Matches(@"_e=.*;\n", sanitised);
-        Assert.Matches(@"_esat=.*;\n", sanitised);
-        Assert.Matches(@"vpd=.*;\n", sanitised);
-    }
-
-    [Theory]
-    [InlineData(VPDMethod.Magnus)]
-    [InlineData(VPDMethod.Buck1981)]
-    [InlineData(VPDMethod.AlduchovEskridge1996)]
-    [InlineData(VPDMethod.AllenFAO1998)]
-    [InlineData(VPDMethod.Sonntag1990)]
-    public async Task GenerateVPDScript_GeneratesValidScript(VPDMethod method)
-    {
-        NarClim2Config config = new()
-        {
-            Project = "test",
-            Queue = "normal",
-            Walltime = "01:00:00",
-            Ncpus = 1,
-            Memory = 4,
-            OutputDirectory = outputDirectory,
-            InputDirectory = "/input",
-            VPDMethod = method
-        };
-        ScriptGenerator generator = new(config);
-        StaticMockDataset dataset = new("/input");
-
-        string scriptPath = await generator.GenerateVPDScript(dataset);
-
-        Assert.True(File.Exists(scriptPath));
-        string scriptContent = await File.ReadAllTextAsync(scriptPath);
-        ValidateScript(scriptContent);
     }
 
     [Theory]
@@ -490,7 +408,7 @@ public class ScriptGeneratorTests : IDisposable
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
 
         // Basic script validation
-        ValidateScript(scriptContent);
+        AssertScriptValid(scriptContent);
 
         if (requiresVPD)
         {
@@ -640,8 +558,9 @@ public class ScriptGeneratorTests : IDisposable
     [Fact]
     public async Task EnsureScriptsAreDisposedOf()
     {
-        TrackingFileWriterFactory factory = new();
-        ScriptGenerator generator = new(_config, factory);
+        PathManager pathManager = new(_config.OutputDirectory);
+        TrackingFileWriterFactory factory = new(_config.OutputDirectory);
+        ScriptGenerator generator = new(_config, pathManager, factory);
         _config.InputDirectory = "/input";
         DynamicMockDataset dataset = new(_config.InputDirectory, _config.OutputDirectory);
 

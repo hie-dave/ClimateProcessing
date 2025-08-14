@@ -37,14 +37,21 @@ public class TrackingFileWriterFactory : IFileWriterFactory
     }
 
     private readonly HashSet<string> activeWriters = new();
+    private readonly string outputDirectory;
 
     public IReadOnlyCollection<string> ActiveWriters => activeWriters;
 
-    public IFileWriter Create(string filePath)
+    public TrackingFileWriterFactory(string outputDirectory)
     {
-        activeWriters.Add(filePath);
+        this.outputDirectory = outputDirectory;
+    }
 
-        ScriptWriter writer = new(filePath);
-        return new DisposableWrapper(writer, () => activeWriters.Remove(filePath));
+    public IFileWriter Create(string name)
+    {
+        string path = Path.Combine(outputDirectory, name);
+        activeWriters.Add(path);
+
+        ScriptWriter writer = new(path);
+        return new DisposableWrapper(writer, () => activeWriters.Remove(path));
     }
 }

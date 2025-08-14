@@ -8,7 +8,7 @@ public interface IFileWriterFactory
     /// <summary>
     /// Creates a new <see cref="IFileWriter"/> instance.
     /// </summary>
-    /// <param name="file">The path to the file.</param>
+    /// <param name="name">The script name.</param>
     /// <returns>The created <see cref="IFileWriter"/> instance.</returns>
-    IFileWriter Create(string file);
+    IFileWriter Create(string name);
 }

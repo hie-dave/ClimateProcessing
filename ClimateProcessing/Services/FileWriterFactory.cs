@@ -1,3 +1,5 @@
+using ClimateProcessing.Models;
+
 namespace ClimateProcessing.Services;
 
 /// <summary>
@@ -5,9 +7,25 @@ namespace ClimateProcessing.Services;
 /// </summary>
 public class FileWriterFactory : IFileWriterFactory
 {
-    /// <inheritdoc/>
-    public IFileWriter Create(string file)
+    /// <summary>
+    /// The path manager service.
+    /// </summary>
+    private readonly IPathManager pathManager;
+
+    /// <summary>
+    /// Creates a new instance of the <see cref="FileWriterFactory"/> class.
+    /// </summary>
+    /// <param name="pathManager">The path manager.</param>
+    public FileWriterFactory(IPathManager pathManager)
     {
-        return new ScriptWriter(file);
+        this.pathManager = pathManager;
+    }
+
+    /// <inheritdoc/>
+    public IFileWriter Create(string name)
+    {
+        string directory = pathManager.GetBasePath(PathType.Script);
+        string script = Path.Combine(directory, name);
+        return new ScriptWriter(script);
     }
 }

@@ -40,6 +40,11 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     protected readonly IPathManager pathManager;
 
     /// <summary>
+    /// The VPD calculator service.
+    /// </summary>
+    private readonly VpdCalculator vpdCalculator;
+
+    /// <summary>
     /// The PBS script generator service.
     /// </summary>
     protected readonly PBSWriter pbsHeavyweight;
@@ -104,8 +109,16 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <param name="config">The processing configuration.</param>
     public ScriptGenerator(ProcessingConfig config) : this(
         config,
-        new FileWriterFactory()
-    )
+        new PathManager(config.OutputDirectory))
+    {
+        // TODO: replace with DI.
+    }
+
+    public ScriptGenerator(
+        ProcessingConfig config,
+        IPathManager pathManager) : this(config,
+                                         pathManager,
+                                         new FileWriterFactory(pathManager))
     {
         // TODO: replace with DI.
     }
@@ -114,10 +127,17 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// Creates a new script generator.
     /// </summary>
     /// <param name="config">The processing configuration.</param>
-    public ScriptGenerator(ProcessingConfig config, IFileWriterFactory fileWriterFactory)
+    /// <param name="pathManager">The path manager.</param>
+    /// <param name="fileWriterFactory">The file writer factory.</param>
+    public ScriptGenerator(
+        ProcessingConfig config,
+        IPathManager pathManager,
+        IFileWriterFactory fileWriterFactory)
     {
         _config = config;
-        pathManager = new PathManager(config.OutputDirectory);
+        this.pathManager = pathManager;
+        this.fileWriterFactory = fileWriterFactory;
+
         PBSWalltime walltime = PBSWalltime.Parse(config.Walltime);
         PBSConfig pbsConfig = new(
             config.Queue,
@@ -140,7 +160,10 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         );
         pbsLightweight = new PBSWriter(lightweightConfig, pathManager);
 
-        this.fileWriterFactory = fileWriterFactory;
+        vpdCalculator = new VpdCalculator(
+            config.VPDMethod,
+            pathManager,
+            fileWriterFactory);
     }
 
     /// <summary>
@@ -224,194 +247,12 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
-    /// Write the equations for estimating VPD to a text writer.
-    /// </summary>
-    /// <param name="writer">The writer to write to.</param>
-    /// <param name="method">The VPD estimation method to use.</param>
-    /// <exception cref="ArgumentException">If the specified VPD method is not supported.</exception>
-    internal async Task WriteVPDEquationsAsync(IFileWriter writer, VPDMethod method)
-    {
-        // All methods follow the same general pattern:
-        // 1. Calculate saturation vapor pressure (_esat)
-        // 2. Calculate actual vapor pressure (_e)
-        // 3. Calculate VPD as (_esat - _e) / 1000 to convert to kPa
-
-        // Other assumptions:
-        // - Temperature is assumed to be in ℃. (TODO: dynamic equations based on actual tas output units)
-        // - Temperature variable name is assumed to be tas. fixme!
-        var esatEquation = method switch
-        {
-            // Magnus equation (default)
-            VPDMethod.Magnus => "_esat=0.611*exp((17.27*tas)/(tas+237.3))*1000",
-
-            // Buck (1981)
-            // Buck's equation for temperatures above 0°C
-            VPDMethod.Buck1981 => "_esat=0.61121*exp((18.678-tas/234.5)*(tas/(257.14+tas)))*1000",
-
-            // Alduchov and Eskridge (1996)
-            // More accurate coefficients for the Magnus equation
-            VPDMethod.AlduchovEskridge1996 => "_esat=0.61094*exp((17.625*tas)/(tas+243.04))*1000",
-
-            // Allen et al. (1998) FAO
-            // Tetens equation with FAO coefficients
-            VPDMethod.AllenFAO1998 => "_esat=0.6108*exp((17.27*tas)/(tas+237.3))*1000",
-
-            // Sonntag (1990)
-            // Based on ITS-90 temperature scale
-            VPDMethod.Sonntag1990 => "_esat=0.61078*exp((17.08085*tas)/(234.175+tas))*1000",
-
-            _ => throw new ArgumentException($"Unsupported VPD calculation method: {method}")
-        };
-
-        await writer.WriteLineAsync($@"# Saturation vapor pressure (Pa) (tas in degC)");
-        await writer.WriteLineAsync($"{esatEquation};");
-        await writer.WriteLineAsync("# Actual vapor pressure (Pa)");
-        await writer.WriteLineAsync("_e=(huss*ps)/(0.622+0.378*huss);");
-        await writer.WriteLineAsync("# VPD (kPa)");
-        await writer.WriteLineAsync("vpd=(_esat-_e)/1000;");
-    }
-
-    /// <summary>
     /// Standard arguments used for all CDO invocations.
     /// TODO: make verbosity configurable?
     /// </summary>
     private string GetCDOArgs()
     {
         return $"-L -O -v -z zip1";
-    }
-
-    /// <summary>
-    /// Get the path to the unoptimised VPD output file for a dataset.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The output file path.</returns>
-    private string GetUnoptimisedVpdOutputFilePath(IClimateDataset dataset)
-    {
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
-        return GetVpdFilePath(dataset, temperatureFile);
-    }
-
-    /// <summary>
-    /// Get the path to the optimised VPD output file for a dataset.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The output file path.</returns>
-    private string GetOptimisedVpdOutputFilePath(IClimateDataset dataset)
-    {
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Output);
-        return GetVpdFilePath(dataset, temperatureFile);
-    }
-
-    /// <summary>
-    /// Given a temperature file, generate a file path for an equivalent file
-    /// containing VPD data.
-    /// </summary>
-    /// <param name="dataset">The climate dataset.</param>
-    /// <param name="temperatureFile">The temperature file.</param>
-    /// <returns>The equivalent VPD file path.</returns>
-    private string GetVpdFilePath(IClimateDataset dataset, string temperatureFile)
-    {
-        // TODO: this could be simplified if VPD were a ClimateVariable.
-        // Currently, these are the input variables though - so adding it would
-        // require some refactoring, and would probably break the encapsulation
-        // offered by this enum type, as most datasets *don't* have VPD as an
-        // input variable.
-        string fileName = Path.GetFileName(temperatureFile);
-        string tempName = dataset.GetVariableInfo(ClimateVariable.Temperature).Name;
-        string baseName = fileName.ReplaceFirst($"{tempName}_", "vpd_");
-        string outFile = Path.Combine(Path.GetDirectoryName(temperatureFile)!, baseName);
-        return outFile;
-    }
-
-    /// <summary>
-    /// Generate a processing script for calculating the VPD for a dataset.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The script.</returns>
-    internal async Task<string> GenerateVPDScript(IClimateDataset dataset)
-    {
-        string jobName = $"calc_vpd_{dataset.DatasetName}";
-        using IFileWriter writer = CreateScript(jobName);
-
-        string humidityFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working);
-        string pressureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working);
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
-
-        // Generate an output file name.
-        string outFile = GetUnoptimisedVpdOutputFilePath(dataset);
-
-        // Equation file is written to JobFS, so it will never require a storage
-        // directive.
-        string[] requiredFiles = [
-            humidityFile,
-            pressureFile,
-            temperatureFile,
-            outFile,
-        ];
-        IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
-
-        await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
-
-        await writer.WriteLineAsync("# File paths.");
-        await writer.WriteLineAsync($"HUSS_FILE=\"{humidityFile}\"");
-
-        await writer.WriteLineAsync($"PS_FILE=\"{pressureFile}\"");
-
-        await writer.WriteLineAsync($"TAS_FILE=\"{temperatureFile}\"");
-
-        string inFiles = "\"${HUSS_FILE}\" \"${PS_FILE}\" \"${TAS_FILE}\"";
-
-        await writer.WriteLineAsync($"OUT_FILE=\"{outFile}\"");
-
-        string eqnFile = "${WORK_DIR}/vpd_equations.txt";
-        await writer.WriteLineAsync($"EQN_FILE=\"{eqnFile}\"");
-        await writer.WriteLineAsync();
-
-        await writer.WriteLineAsync("# Generate equation file.");
-        await writer.WriteLineAsync("log \"Generating VPD equation file...\"");
-
-        // Create equation file with selected method.
-        await writer.WriteLineAsync($"cat >\"${{EQN_FILE}}\" <<EOF");
-        await WriteVPDEquationsAsync(writer, _config.VPDMethod);
-        await writer.WriteLineAsync("EOF");
-        await writer.WriteLineAsync();
-
-        // Calculate VPD using the equation file.
-        await writer.WriteLineAsync("# Calculate VPD.");
-        await writer.WriteLineAsync($"log \"Calculating VPD...\"");
-        await writer.WriteLineAsync($"cdo {GetCDOArgs()} exprf,\"${{EQN_FILE}}\" -merge {inFiles} \"${{OUT_FILE}}\"");
-        await writer.WriteLineAsync($"log \"VPD calculation completed successfully.\"");
-
-        // We can't delete the intermediate files yet, because they are required
-        // by the rechunk_X jobs, which may not have run yet.
-
-        // Return the path to the generated script.
-        return writer.FilePath;
-    }
-
-    /// <summary>
-    /// Generate a script for rechunking VPD data.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The script path.</returns>
-    private async Task<string> GenerateVPDRechunkScript(IClimateDataset dataset)
-    {
-        string jobName = $"rechunk_vpd_{dataset.DatasetName}";
-        string inFile = GetUnoptimisedVpdOutputFilePath(dataset);
-        string outFile = GetOptimisedVpdOutputFilePath(dataset);
-        return await GenerateRechunkScript(jobName, inFile, outFile, true);
-    }
-
-    /// <summary>
-    /// Check if the VPD calculation depends on the specified variable.
-    /// </summary>
-    /// <param name="variable">The variable.</param>
-    /// <returns>True iff the VPD calculation depends on the specified variable.</returns>
-    private bool IsVpdDependency(ClimateVariable variable)
-    {
-        return variable == ClimateVariable.SpecificHumidity
-            || variable == ClimateVariable.SurfacePressure
-            || variable == ClimateVariable.Temperature;
     }
 
     internal (string, AggregationMethod) GetTargetConfig(ClimateVariable variable)
@@ -447,6 +288,19 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
+    /// Generate a script for rechunking VPD data.
+    /// </summary>
+    /// <param name="dataset">The dataset.</param>
+    /// <returns>The script path.</returns>
+    public async Task<string> GenerateVPDRechunkScript(IClimateDataset dataset, string inFile)
+    {
+        string jobName = $"rechunk_vpd_{dataset.DatasetName}";
+        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Output);
+        string outFile = VpdCalculator.GetVpdFilePath(dataset, temperatureFile);
+        return await GenerateRechunkScript(jobName, inFile, outFile, true);
+    }
+
+    /// <summary>
     /// Generate processing scripts, and return the path to the top-level script.
     /// </summary>
     /// <param name="dataset">The dataset.</param>
@@ -456,7 +310,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         pathManager.CreateDirectoryTree(dataset);
 
         string submitJobName = $"submit_{dataset.DatasetName}";
-        using IFileWriter submitScript = CreateScript(submitJobName);
+        using IFileWriter submitScript = fileWriterFactory.Create(submitJobName);
 
         // Add PBS header.
         await submitScript.WriteLineAsync("#!/usr/bin/env bash");
@@ -484,8 +338,9 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             rechunkScripts[variable] = rechunk;
         }
 
-        string vpdScript = await GenerateVPDScript(dataset);
-        string vpdRechunkScript = await GenerateVPDRechunkScript(dataset);
+        string vpdScript = await vpdCalculator.GenerateVPDScript(dataset, pbsLightweight, GetCDOArgs());
+        string vpdFile = vpdCalculator.GetUnoptimisedVpdOutputFilePath(dataset);
+        string vpdRechunkScript = await GenerateVPDRechunkScript(dataset, vpdFile);
         string cleanupScript = await GenerateCleanupScript(dataset);
 
         // Add job submission logic.
@@ -499,7 +354,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub \"{mergetimeScripts[variable]}\")\"");
 
             // Append this job to the list of VPD dependencies if necessary.
-            if (requiresVpd && IsVpdDependency(variable))
+            if (requiresVpd && VpdCalculator.IsVpdDependency(variable))
             {
                 if (vpdEmpty)
                     await submitScript.WriteLineAsync("VPD_DEPS=\"${JOB_ID}\"");
@@ -569,21 +424,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
-    /// Create an empty script file and set execute permissions.
-    /// </summary>
-    /// <param name="jobName">The name of the job.</param>
-    /// <returns>The path to the script file.</returns>
-    private IFileWriter CreateScript(string jobName)
-    {
-        string directory = pathManager.GetBasePath(PathType.Script);
-
-        // Use job name as script file name. This avoids the problems associated
-        // with naming a file with a ".sh" (or similar) extension.
-        string script = Path.Combine(directory, jobName);
-        return fileWriterFactory.Create(script);
-    }
-
-    /// <summary>
     /// Write the pre-merge commands to the specified writer.
     /// </summary>
     /// <param name="writer">The text writer.</param>
@@ -649,7 +489,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Create script directory if it doesn't already exist.
         // This should be unnecessary at this point.
         string jobName = GetJobName("mergetime", varInfo, dataset);
-        using IFileWriter writer = CreateScript(jobName);
+        using IFileWriter writer = fileWriterFactory.Create(jobName);
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
@@ -723,7 +563,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     private async Task<string> GenerateCleanupScript(IClimateDataset dataset)
     {
         string jobName = $"cleanup_{dataset.DatasetName}";
-        using IFileWriter writer = CreateScript(jobName);
+        using IFileWriter writer = fileWriterFactory.Create(jobName);
         string workDir = pathManager.GetDatasetPath(dataset, PathType.Working);
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([workDir]);
@@ -755,14 +595,14 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         string jobName = GetJobName("rechunk", varInfo, dataset);
         string inFile = pathManager.GetDatasetFileName(dataset, variable, PathType.Working);
         string outFile = pathManager.GetDatasetFileName(dataset, variable, PathType.Output);
-        bool cleanup = !IsVpdDependency(variable);
+        bool cleanup = !VpdCalculator.IsVpdDependency(variable);
 
         return await GenerateRechunkScript(jobName, inFile, outFile, cleanup);
     }
 
     private async Task<string> GenerateRechunkScript(string jobName, string inFile, string outFile, bool cleanup)
     {
-        using IFileWriter writer = CreateScript(jobName);
+        using IFileWriter writer = fileWriterFactory.Create(jobName);
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([inFile, outFile]);
 

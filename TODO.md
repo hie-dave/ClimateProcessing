@@ -2,6 +2,9 @@
 
 - Add concrete usage example to README
 - Eliminate file IO from most unit tests by using in-memory file writers
+- Refactor VpdCalculator to generate equations dynamically based on the units of
+  the input variables
+- Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
 
 ### ClimateVariableManager
 
