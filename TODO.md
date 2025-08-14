@@ -1,16 +1,7 @@
 # TODO
 
 - Add concrete usage example to README
-
-## Refactor ScriptGenerator
-
-### Extract an IFileWriter interface
-
-- ScriptGenerator is passed an IFileWriter instance
-- The writer has methods like WriteLineAsync(), and replaces all of the manual
-  TextWriter usage in ScriptGenerator
-- Makes the unit tests cleaner by avoiding file IO
-- Makes ScriptGenerator more flexible by removing filesystem interactions
+- Eliminate file IO from most unit tests by using in-memory file writers
 
 ### ClimateVariableManager
 

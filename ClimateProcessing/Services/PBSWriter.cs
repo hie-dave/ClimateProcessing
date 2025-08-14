@@ -29,7 +29,7 @@ public class PBSWriter
     /// <param name="jobName">The job name.</param>
     /// <param name="storageDirectives">The storage directives required by the job.</param>
     public async Task WritePBSHeader(
-        TextWriter writer,
+        IFileWriter writer,
         string jobName,
         IEnumerable<PBSStorageDirective> storageDirectives)
     {
@@ -128,7 +128,7 @@ public class PBSWriter
     /// Write a comment to a script which indicates that it was automatically generated.
     /// </summary>
     /// <param name="writer">The text writer to which the comment will be written.</param>
-    private static async Task WriteAutoGenerateHeader(TextWriter writer)
+    private static async Task WriteAutoGenerateHeader(IFileWriter writer)
     {
         await writer.WriteLineAsync("# This script was automatically generated. Do not modify.");
         await writer.WriteLineAsync();

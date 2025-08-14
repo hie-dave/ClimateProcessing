@@ -12,6 +12,7 @@ using Xunit.Abstractions;
 using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
 using Moq;
+using ClimateProcessing.Tests.Helpers;
 
 namespace ClimateProcessing.Tests.Services;
 
@@ -414,7 +415,11 @@ public class ScriptGeneratorTests : IDisposable
         ScriptGenerator generator = new(config);
 
         StringWriter writer = new();
-        await generator.WriteVPDEquationsAsync(writer, method);
+        Mock<IFileWriter> writerMock = new();
+        writerMock.Setup(w => w.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        writerMock.Setup(w => w.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.Write(s));
+        writerMock.Setup(w => w.WriteLineAsync()).Callback(() => writer.WriteLine());
+        await generator.WriteVPDEquationsAsync(writerMock.Object, method);
         string equationContent = writer.ToString();
 
         // Remove comment lines.
@@ -610,8 +615,8 @@ public class ScriptGeneratorTests : IDisposable
         _config.CompressOutput = compressionEnabled;
         _config.CompressionLevel = compressionLevel;
         ScriptGenerator generator = new ScriptGenerator(_config);
-        string script = await generator.GenerateVariableRechunkScript(dataset, ClimateVariable.Temperature);
-        string[] scriptLines = await File.ReadAllLinesAsync(script);
+        string scriptPath = await generator.GenerateVariableRechunkScript(dataset, ClimateVariable.Temperature);
+        string[] scriptLines = await File.ReadAllLinesAsync(scriptPath);
         IEnumerable<string> ncpdqLines = scriptLines.Where(l => l.Contains("ncpdq"));
 
         if (compressionEnabled)
@@ -630,6 +635,21 @@ public class ScriptGeneratorTests : IDisposable
 
         // The wrapper script should call each subscript passed into it.
         Assert.Contains($"\n{script}\n", output);
+    }
+
+    [Fact]
+    public async Task EnsureScriptsAreDisposedOf()
+    {
+        TrackingFileWriterFactory factory = new();
+        ScriptGenerator generator = new(_config, factory);
+        _config.InputDirectory = "/input";
+        DynamicMockDataset dataset = new(_config.InputDirectory, _config.OutputDirectory);
+
+        await generator.GenerateScriptsAsync(dataset);
+
+        if (factory.ActiveWriters.Count > 0)
+            outputHelper.WriteLine($"Script generator failed to dispose of {factory.ActiveWriters.Count} file writers: {string.Join(", ", factory.ActiveWriters.Select(f => Path.GetFileName(f)))}");
+        Assert.Empty(factory.ActiveWriters);
     }
 
     /// <summary>

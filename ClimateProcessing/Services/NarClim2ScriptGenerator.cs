@@ -31,12 +31,11 @@ public class NarClim2ScriptGenerator : ScriptGenerator, IScriptGenerator<NarClim
     /// Write commands to the script which run before the merge step, which
     /// fix the incorrect rlon values in the input files.
     /// </summary>
-    /// <param name="writer"></param>
-    /// <param name="dataset"></param>
-    /// <param name="variable"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
-    protected override async Task WritePreMerge(TextWriter writer, IClimateDataset dataset, ClimateVariable variable)
+    /// <param name="writer">The file writer.</param>
+    /// <param name="dataset">The dataset.</param>
+    /// <param name="variable">The variable.</param>
+    /// <exception cref="ArgumentException">If the dataset is not a <see cref="NarClim2Dataset"/>.</exception>
+    protected override async Task WritePreMerge(IFileWriter writer, IClimateDataset dataset, ClimateVariable variable)
     {
         if (dataset is not NarClim2Dataset narclim2)
             // Should never happen.

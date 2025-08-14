@@ -17,7 +17,7 @@ public class TempFile : IDisposable
     public TempFile(string absolutePath)
     {
         AbsolutePath = absolutePath;
-        File.Create(AbsolutePath);
+        using (File.Create(AbsolutePath)) { }
     }
 
     /// <summary>

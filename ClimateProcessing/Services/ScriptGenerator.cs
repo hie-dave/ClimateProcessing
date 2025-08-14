@@ -1,10 +1,7 @@
-using System.Text;
 using ClimateProcessing.Models;
-using System.IO;
 using ClimateProcessing.Units;
 using System.Runtime.CompilerServices;
 using ClimateProcessing.Extensions;
-using System.Web;
 using System.Text.RegularExpressions;
 using ClimateProcessing.Configuration;
 
@@ -26,6 +23,11 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// CDO's bilinear remapping operator.
     /// </summary>
     private const string remapBilinear = "remapbil";
+
+    /// <summary>
+    /// The file writer factory.
+    /// </summary>
+    protected readonly IFileWriterFactory fileWriterFactory;
 
     /// <summary>
     /// The processing configuration.
@@ -97,10 +99,22 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     };
 
     /// <summary>
+    /// Creates a new script generator with the default file writer factory.
+    /// </summary>
+    /// <param name="config">The processing configuration.</param>
+    public ScriptGenerator(ProcessingConfig config) : this(
+        config,
+        new FileWriterFactory()
+    )
+    {
+        // TODO: replace with DI.
+    }
+
+    /// <summary>
     /// Creates a new script generator.
     /// </summary>
     /// <param name="config">The processing configuration.</param>
-    public ScriptGenerator(ProcessingConfig config)
+    public ScriptGenerator(ProcessingConfig config, IFileWriterFactory fileWriterFactory)
     {
         _config = config;
         pathManager = new PathManager(config.OutputDirectory);
@@ -125,6 +139,8 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             walltime
         );
         pbsLightweight = new PBSWriter(lightweightConfig, pathManager);
+
+        this.fileWriterFactory = fileWriterFactory;
     }
 
     /// <summary>
@@ -213,7 +229,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <param name="writer">The writer to write to.</param>
     /// <param name="method">The VPD estimation method to use.</param>
     /// <exception cref="ArgumentException">If the specified VPD method is not supported.</exception>
-    internal async Task WriteVPDEquationsAsync(TextWriter writer, VPDMethod method)
+    internal async Task WriteVPDEquationsAsync(IFileWriter writer, VPDMethod method)
     {
         // All methods follow the same general pattern:
         // 1. Calculate saturation vapor pressure (_esat)
@@ -315,7 +331,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     internal async Task<string> GenerateVPDScript(IClimateDataset dataset)
     {
         string jobName = $"calc_vpd_{dataset.DatasetName}";
-        string script = await CreateScript(jobName);
+        using IFileWriter writer = CreateScript(jobName);
 
         string humidityFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working);
         string pressureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working);
@@ -334,7 +350,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         ];
         IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        using TextWriter writer = new StreamWriter(script);
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
@@ -371,7 +386,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // by the rechunk_X jobs, which may not have run yet.
 
         // Return the path to the generated script.
-        return script;
+        return writer.FilePath;
     }
 
     /// <summary>
@@ -441,21 +456,20 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         pathManager.CreateDirectoryTree(dataset);
 
         string submitJobName = $"submit_{dataset.DatasetName}";
-        string submitScript = await CreateScript(submitJobName);
-        using TextWriter writer = new StreamWriter(submitScript);
+        using IFileWriter submitScript = CreateScript(submitJobName);
 
         // Add PBS header.
-        await writer.WriteLineAsync("#!/usr/bin/env bash");
-        await writer.WriteLineAsync($"# Job submission script for: {dataset.DatasetName}");
-        await writer.WriteLineAsync();
-        await WriteAutoGenerateHeader(writer);
-        await writer.WriteLineAsync("# Exit immediately if any command fails.");
-        await writer.WriteLineAsync("set -euo pipefail");
-        await writer.WriteLineAsync();
+        await submitScript.WriteLineAsync("#!/usr/bin/env bash");
+        await submitScript.WriteLineAsync($"# Job submission script for: {dataset.DatasetName}");
+        await submitScript.WriteLineAsync();
+        await WriteAutoGenerateHeader(submitScript);
+        await submitScript.WriteLineAsync("# Exit immediately if any command fails.");
+        await submitScript.WriteLineAsync("set -euo pipefail");
+        await submitScript.WriteLineAsync();
 
         // Ensure output directory exists.
-        await writer.WriteLineAsync($"mkdir -p \"{_config.OutputDirectory}\"");
-        await writer.WriteLineAsync();
+        await submitScript.WriteLineAsync($"mkdir -p \"{_config.OutputDirectory}\"");
+        await submitScript.WriteLineAsync();
 
         // Process each variable.
         Dictionary<ClimateVariable, string> mergetimeScripts = new();
@@ -482,15 +496,15 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         foreach (ClimateVariable variable in variables)
         {
             // Submit mergetime script.
-            await writer.WriteLineAsync($"JOB_ID=\"$(qsub \"{mergetimeScripts[variable]}\")\"");
+            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub \"{mergetimeScripts[variable]}\")\"");
 
             // Append this job to the list of VPD dependencies if necessary.
             if (requiresVpd && IsVpdDependency(variable))
             {
                 if (vpdEmpty)
-                    await writer.WriteLineAsync("VPD_DEPS=\"${JOB_ID}\"");
+                    await submitScript.WriteLineAsync("VPD_DEPS=\"${JOB_ID}\"");
                 else
-                    await writer.WriteLineAsync($"VPD_DEPS=\"${{VPD_DEPS}}:${{JOB_ID}}\"");
+                    await submitScript.WriteLineAsync($"VPD_DEPS=\"${{VPD_DEPS}}:${{JOB_ID}}\"");
                 vpdEmpty = false;
             }
 
@@ -506,37 +520,37 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
                 // model and we therefore don't need to rechunk it.
 
                 // Submit rechunk script.
-                await writer.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{rechunkScripts[variable]}\")\"");
+                await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{rechunkScripts[variable]}\")\"");
 
                 // Append the ID of the rechunk job to the "all jobs" list.
                 if (allDepsEmpty)
                 {
-                    await writer.WriteLineAsync("ALL_JOBS=\"${JOB_ID}\"");
+                    await submitScript.WriteLineAsync("ALL_JOBS=\"${JOB_ID}\"");
                     allDepsEmpty = false;
                 }
                 else
-                    await writer.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
+                    await submitScript.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
             }
-            await writer.WriteLineAsync();
+            await submitScript.WriteLineAsync();
         }
 
         // Submit VPD scripts.
         if (requiresVpd)
         {
-            await writer.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{VPD_DEPS}}\" \"{vpdScript}\")\"");
-            await writer.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{vpdRechunkScript}\")\"");
-            await writer.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
-            await writer.WriteLineAsync();
+            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{VPD_DEPS}}\" \"{vpdScript}\")\"");
+            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{vpdRechunkScript}\")\"");
+            await submitScript.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
+            await submitScript.WriteLineAsync();
         }
 
         // Submit cleanup script.
-        await writer.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{ALL_JOBS}}\" \"{cleanupScript}\")\"");
-        await writer.WriteLineAsync();
+        await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{ALL_JOBS}}\" \"{cleanupScript}\")\"");
+        await submitScript.WriteLineAsync();
 
-        await writer.WriteLineAsync($"echo \"Job submission complete for dataset {dataset.DatasetName}. Job ID: ${{JOB_ID}}\"");
-        await writer.WriteLineAsync();
+        await submitScript.WriteLineAsync($"echo \"Job submission complete for dataset {dataset.DatasetName}. Job ID: ${{JOB_ID}}\"");
+        await submitScript.WriteLineAsync();
 
-        return submitScript;
+        return submitScript.FilePath;
     }
 
     /// <summary>
@@ -555,36 +569,18 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
-    /// Create the specified script file, and give it the required permissions.
-    /// </summary>
-    /// <param name="script">Path to a script file.</param>
-    private static async Task InitialiseScript(string script)
-    {
-        await File.WriteAllTextAsync(script, string.Empty);
-#if !WINDOWS
-#pragma warning disable CA1416
-        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-#pragma warning restore CA1416
-#endif
-    }
-
-    /// <summary>
     /// Create an empty script file and set execute permissions.
     /// </summary>
     /// <param name="jobName">The name of the job.</param>
     /// <returns>The path to the script file.</returns>
-    private async Task<string> CreateScript(string jobName)
+    private IFileWriter CreateScript(string jobName)
     {
         string directory = pathManager.GetBasePath(PathType.Script);
 
         // Use job name as script file name. This avoids the problems associated
         // with naming a file with a ".sh" (or similar) extension.
         string script = Path.Combine(directory, jobName);
-
-        // Create empty script file, set execute permissions.
-        await InitialiseScript(script);
-
-        return script;
+        return fileWriterFactory.Create(script);
     }
 
     /// <summary>
@@ -593,7 +589,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <param name="writer">The text writer.</param>
     /// <param name="dataset">The climate dataset being processed.</param>
     /// <param name="variable">The variable of the dataset being processed.</param>
-    protected virtual Task WritePreMerge(TextWriter writer, IClimateDataset dataset, ClimateVariable variable)
+    protected virtual Task WritePreMerge(IFileWriter writer, IClimateDataset dataset, ClimateVariable variable)
     {
         return Task.CompletedTask;
     }
@@ -653,8 +649,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Create script directory if it doesn't already exist.
         // This should be unnecessary at this point.
         string jobName = GetJobName("mergetime", varInfo, dataset);
-        string scriptFile = await CreateScript(jobName);
-        using TextWriter writer = new StreamWriter(scriptFile);
+        using IFileWriter writer = CreateScript(jobName);
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
@@ -717,7 +712,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Remapped files are in jobfs, and will be automatically deleted upon
         // job completion (or failure).
 
-        return scriptFile;
+        return writer.FilePath;
     }
 
     /// <summary>
@@ -728,19 +723,17 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     private async Task<string> GenerateCleanupScript(IClimateDataset dataset)
     {
         string jobName = $"cleanup_{dataset.DatasetName}";
-        string scriptFile = await CreateScript(jobName);
+        using IFileWriter writer = CreateScript(jobName);
         string workDir = pathManager.GetDatasetPath(dataset, PathType.Working);
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([workDir]);
-
-        using TextWriter writer = new StreamWriter(scriptFile);
 
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"IN_DIR=\"{workDir}\"");
         await writer.WriteLineAsync("rm -rf \"${IN_DIR}\"");
 
-        return scriptFile;
+        return writer.FilePath;
     }
 
     /// <summary>
@@ -769,11 +762,9 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
 
     private async Task<string> GenerateRechunkScript(string jobName, string inFile, string outFile, bool cleanup)
     {
-        string scriptFile = await CreateScript(jobName);
+        using IFileWriter writer = CreateScript(jobName);
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([inFile, outFile]);
-
-        using TextWriter writer = new StreamWriter(scriptFile);
 
         await pbsHeavyweight.WritePBSHeader(writer, jobName, storageDirectives);
 
@@ -821,7 +812,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         else
             await writer.WriteLineAsync("# Input file cannot (necessarily) be deleted yet, since it is required for VPD estimation.");
 
-        return scriptFile;
+        return writer.FilePath;
     }
 
     /// <summary>
@@ -829,7 +820,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// generated.
     /// </summary>
     /// <param name="writer">The text writer to which the comment will be written.</param>
-    private static async Task WriteAutoGenerateHeader(TextWriter writer)
+    private static async Task WriteAutoGenerateHeader(IFileWriter writer)
     {
         await writer.WriteLineAsync("# This script was automatically generated. Do not modify.");
         await writer.WriteLineAsync();
@@ -847,8 +838,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         string scriptPath = pathManager.GetBasePath(PathType.Script);
         string scriptFile = Path.Combine(scriptPath, jobName);
 
-        await InitialiseScript(scriptFile);
-        using TextWriter writer = new StreamWriter(scriptFile);
+        using IFileWriter writer = new ScriptWriter(scriptFile);
 
         await writer.WriteLineAsync("#!/usr/bin/env bash");
         await writer.WriteLineAsync("# Master-level script which executes all job submission scripts to submit all PBS jobs.");
@@ -862,6 +852,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // Execute all scripts (making assumptions about file permissions).
         foreach (string script in scripts)
             await writer.WriteLineAsync(script);
+
         return scriptFile;
     }
 

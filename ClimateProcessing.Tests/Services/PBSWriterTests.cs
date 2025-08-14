@@ -2,6 +2,7 @@ using Xunit;
 using ClimateProcessing.Services;
 using ClimateProcessing.Models;
 using ClimateProcessing.Configuration;
+using Moq;
 
 namespace ClimateProcessing.Tests.Services;
 
@@ -45,6 +46,10 @@ public class PBSWriterTests : IDisposable
     {
         // Arrange
         StringWriter writer = new();
+        Mock<IFileWriter> fileWriterMock = new();
+        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
         PBSConfig config = new(
             queue,
             ncpu,
@@ -58,7 +63,7 @@ public class PBSWriterTests : IDisposable
         PBSWriter generator = new(config, pathManager);
 
         // Act
-        await generator.WritePBSHeader(writer, jobName, Array.Empty<PBSStorageDirective>());
+        await generator.WritePBSHeader(fileWriterMock.Object, jobName, Array.Empty<PBSStorageDirective>());
         string result = writer.ToString();
 
         // Assert
@@ -107,6 +112,10 @@ public class PBSWriterTests : IDisposable
     {
         // Arrange
         StringWriter writer = new();
+        Mock<IFileWriter> fileWriterMock = new();
+        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
         PBSConfig config = new(
             "normal",
             2,
@@ -121,7 +130,7 @@ public class PBSWriterTests : IDisposable
             PBSStorageHelper.GetStorageDirectives(filePaths);
 
         // Act
-        await generator.WritePBSHeader(writer, "test_job", directives);
+        await generator.WritePBSHeader(fileWriterMock.Object, "test_job", directives);
         string result = writer.ToString();
 
         // Assert
@@ -165,6 +174,10 @@ public class PBSWriterTests : IDisposable
         string expected)
     {
         StringWriter writer = new();
+        Mock<IFileWriter> fileWriterMock = new();
+        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
+        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
         PBSConfig config = new(
             "normal",
             2,
@@ -178,7 +191,7 @@ public class PBSWriterTests : IDisposable
         PathManager pathManager = new PathManager(outputDirectory);
         PBSWriter generator = new(config, pathManager);
 
-        await generator.WritePBSHeader(writer, "test_job", Array.Empty<PBSStorageDirective>());
+        await generator.WritePBSHeader(fileWriterMock.Object, "test_job", Array.Empty<PBSStorageDirective>());
         string result = writer.ToString();
 
         string expectedDirective = $"#PBS -m {expected}";

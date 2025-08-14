@@ -86,8 +86,8 @@ public class NarClim2ScriptGeneratorTests : IDisposable
     public async Task GenerateVariableMergeScript_UsesCorrectPath(NarClim2Domain domain, string expectedFileName)
     {
         Mock<NarClim2Dataset> mockDataset = CreateMockDataset(domain: domain);
-        string file = await generator.GenerateVariableMergeScript(mockDataset.Object, ClimateVariable.Temperature);
-        string script = await File.ReadAllTextAsync(file);
+        string scriptPath = await generator.GenerateVariableMergeScript(mockDataset.Object, ClimateVariable.Temperature);
+        string script = await File.ReadAllTextAsync(scriptPath);
 
         // The script should use the correct rlon values file for this domain.
         Assert.Contains("setvar.py", script);
