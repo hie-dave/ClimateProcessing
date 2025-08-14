@@ -5,6 +5,7 @@ build:
 
 clean:
 	dotnet clean
+	rm -rf coveragereport ClimateProcessing.Tests/TestResults
 
 run:
 	dotnet run --project ClimateProcessing --

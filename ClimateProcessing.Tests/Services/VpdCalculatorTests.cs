@@ -116,6 +116,18 @@ public sealed class VpdCalculatorTests : IDisposable
         ValidateEquations(equationContent);
     }
 
+    [Fact]
+    public async Task WriteVPDEquationsAsync_ThrowsForInvalidMethod()
+    {
+        InMemoryScriptWriter writer = new InMemoryScriptWriter();
+        StaticMockDataset dataset = new StaticMockDataset("x");
+
+        VPDMethod method = (VPDMethod)666;
+        VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
+        ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () => await calculator.WriteVPDEquationsAsync(writer, dataset));
+        Assert.Contains("method", exception.Message);
+    }
+
     private static void ValidateEquations(string content)
     {
         // Check for valid CDO expression syntax.
@@ -127,10 +139,10 @@ public sealed class VpdCalculatorTests : IDisposable
 
         foreach (string line in lines)
         {
-            // Each non-comment line should end with semicolon
+            // Each non-comment line should end with semicolon.
             Assert.EndsWith(";", line.Trim());
 
-            // Basic syntax check - equal number of opening/closing parentheses
+            // Basic syntax check - equal number of opening/closing parentheses.
             int openParens = line.Count(c => c == '(');
             int closeParens = line.Count(c => c == ')');
             Assert.Equal(openParens, closeParens);

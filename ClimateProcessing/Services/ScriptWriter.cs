@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 namespace ClimateProcessing.Services;
 
 /// <summary>
@@ -23,7 +25,11 @@ public class ScriptWriter : IFileWriter
     {
         FilePath = file;
         writer = File.CreateText(file);
+#if !WINDOWS
+#pragma warning disable CA1416
         InitialiseScript();
+#pragma warning restore CA1416
+#endif
     }
 
     /// <inheritdoc/>
@@ -54,10 +60,9 @@ public class ScriptWriter : IFileWriter
     /// <summary>
     /// Create the specified script file, and give it the required permissions.
     /// </summary>
+    [UnsupportedOSPlatform("windows")]
     private void InitialiseScript()
     {
-#if !WINDOWS
-#pragma warning disable CA1416
         // Set permissions to 755.
         File.SetUnixFileMode(FilePath,
             UnixFileMode.UserRead |
@@ -67,7 +72,5 @@ public class ScriptWriter : IFileWriter
             UnixFileMode.GroupExecute |
             UnixFileMode.OtherRead |
             UnixFileMode.OtherExecute);
-#pragma warning restore CA1416
-#endif
     }
 }

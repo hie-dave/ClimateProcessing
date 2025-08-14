@@ -513,7 +513,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         string conversion = string.Join(" ", GenerateUnitConversionOperators(outVar, varInfo.Units, targetUnits, _config.InputTimeStep));
         string aggregation = GenerateTimeAggregationOperator(variable);
         string unpack = "-unpack";
-        string remapOperator = GetRemapOperator(varInfo, variable);
+        string remapOperator = GetRemapOperator(GetInterpolationAlgorithm(varInfo, variable));
         string remap = string.IsNullOrEmpty(_config.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
         string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
         operators = Regex.Replace(operators, " +", " ");
@@ -744,17 +744,16 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// Get the CDO remap operator to be used when remapping the specified
     /// variable.
     /// </summary>
-    /// <param name="info">Metadata for the variable in the dataset being processed.</param>
-    /// <param name="variable">The variable to remap.</param>
+    /// <param name="algorithm">The interpolation algorithm to use.</param>
     /// <returns>The CDO remap operator to use.</returns>
     /// <exception cref="ArgumentException"></exception>
-    private string GetRemapOperator(VariableInfo info, ClimateVariable variable)
+    internal static string GetRemapOperator(InterpolationAlgorithm algorithm)
     {
-        return GetInterpolationAlgorithm(info, variable) switch
+        return algorithm switch
         {
             InterpolationAlgorithm.Bilinear => remapBilinear,
             InterpolationAlgorithm.Conservative => remapConservative,
-            _ => throw new ArgumentException($"Unknown remap algorithm: {GetInterpolationAlgorithm(info, variable)}")
+            _ => throw new ArgumentException($"Unknown remap algorithm: {algorithm}")
         };
     }
 }

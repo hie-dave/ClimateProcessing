@@ -228,6 +228,15 @@ public class ScriptGeneratorTests : IDisposable
         Assert.Equal(InterpolationAlgorithm.Bilinear, areaResult);
     }
 
+    [Fact]
+    public void GetRemapOperator_UnknownAlgorithm_ThrowsArgumentException()
+    {
+        InterpolationAlgorithm algorithm = (InterpolationAlgorithm)999;
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => ScriptGenerator.GetRemapOperator(algorithm));
+        Assert.Contains("algorithm", exception.Message);
+    }
+
     [Theory]
     [InlineData("input dir with spaces")]
     [InlineData("/path/with/special/$chars")]
