@@ -47,7 +47,7 @@ public sealed class VpdCalculatorTests : IDisposable
 
         FileWriterFactory factory = new FileWriterFactory(pathManager);
         VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
-        string scriptPath = await calculator.GenerateVPDScript(dataset, pbsWriter, "-O");
+        string scriptPath = await calculator.GenerateVPDScript(dataset, pbsWriter);
 
         Assert.True(File.Exists(scriptPath));
         string scriptContent = await File.ReadAllTextAsync(scriptPath);

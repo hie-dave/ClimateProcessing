@@ -162,9 +162,4 @@ public abstract class ProcessingConfig
     /// Creates the datasets that will be used to generate the script.
     /// </summary>
     public abstract IEnumerable<IClimateDataset> CreateDatasets();
-
-    /// <summary>
-    /// Creates the script generator used to generate the script.
-    /// </summary>
-    public abstract ScriptGenerator CreateScriptGenerator();
 }

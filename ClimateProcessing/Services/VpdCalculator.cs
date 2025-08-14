@@ -41,12 +41,10 @@ public class VpdCalculator
     /// </summary>
     /// <param name="dataset">The dataset.</param>
     /// <param name="pbsWriter">The PBS writer to use.</param>
-    /// <param name="cdoArgs">The CDO arguments to use.</param>
     /// <returns>The script.</returns>
     public async Task<string> GenerateVPDScript(
         IClimateDataset dataset,
-        PBSWriter pbsWriter,
-        string cdoArgs)
+        PBSWriter pbsWriter)
     {
         string jobName = $"calc_vpd_{dataset.DatasetName}";
         using IFileWriter writer = fileWriterFactory.Create(jobName);
@@ -97,7 +95,7 @@ public class VpdCalculator
         // Calculate VPD using the equation file.
         await writer.WriteLineAsync("# Calculate VPD.");
         await writer.WriteLineAsync($"log \"Calculating VPD...\"");
-        await writer.WriteLineAsync($"cdo {cdoArgs} exprf,\"${{EQN_FILE}}\" -merge {inFiles} \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync($"cdo {CdoMergetimeScriptGenerator.GetCommonArgs()} exprf,\"${{EQN_FILE}}\" -merge {inFiles} \"${{OUT_FILE}}\"");
         await writer.WriteLineAsync($"log \"VPD calculation completed successfully.\"");
 
         // We can't delete the intermediate files yet, because they are required

@@ -7,19 +7,15 @@
 - Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
 - Revise unit tests for vpd calculator. Should we test the generated equations?
 
-### ClimateVariableManager
-
-Handle climate variable configurations
-
-- Current static dictionaries (daveVariables, trunkVariables)
-- Methods like GetVariables, GetTargetUnits, GetAggregationMethod
-
 ### CDOCommandGenerator
 
 Handle CDO command generation
 
 - Methods like GenerateRenameOperator, GenerateUnitConversionOperators
 - CDO-specific constants and configurations
+- Unit test to ensure that operators all correctly written with hyphens
+  (previously, remapBil had hyphen but remapCon did not)
+- Make verbosity configurable
 
 ### ScriptContentGenerator
 

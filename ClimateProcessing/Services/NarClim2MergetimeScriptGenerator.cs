@@ -5,7 +5,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Script generator specifically for NarClim2 datasets.
 /// </summary>
-public class NarClim2ScriptGenerator : ScriptGenerator, IScriptGenerator<NarClim2Dataset>
+public class NarClim2MergetimeScriptGenerator : CdoMergetimeScriptGenerator
 {
     /// <summary>
     /// Name of the directory in which the files with corrected rlon values are
@@ -14,32 +14,24 @@ public class NarClim2ScriptGenerator : ScriptGenerator, IScriptGenerator<NarClim
     private const string rlonDir = "corrected_rlon";
 
     /// <summary>
-    /// Creates a new instance of the <see cref="NarClim2ScriptGenerator"/> class.
+    /// Creates a new instance of the <see cref="NarClim2MergetimeScriptGenerator"/> class.
     /// </summary>
-    /// <param name="config">The processing configuration.</param>
-    public NarClim2ScriptGenerator(NarClim2Config config) : base(config)
+    public NarClim2MergetimeScriptGenerator()
     {
-    }
-
-    /// <inheritdoc/>
-    public async Task<string> GenerateScriptsAsync(NarClim2Dataset dataset)
-    {
-        return await base.GenerateScriptsAsync(dataset);
     }
 
     /// <summary>
     /// Write commands to the script which run before the merge step, which
     /// fix the incorrect rlon values in the input files.
     /// </summary>
-    /// <param name="writer">The file writer.</param>
-    /// <param name="dataset">The dataset.</param>
-    /// <param name="variable">The variable.</param>
+    /// <param name="writer">The script writer.</param>
+    /// <param name="options">The mergetime options.</param>
     /// <exception cref="ArgumentException">If the dataset is not a <see cref="NarClim2Dataset"/>.</exception>
-    protected override async Task WritePreMerge(IFileWriter writer, IClimateDataset dataset, ClimateVariable variable)
+    protected override async Task WritePreMerge(IFileWriter writer, IMergetimeOptions options)
     {
-        if (dataset is not NarClim2Dataset narclim2)
+        if (options.Dataset is not NarClim2Dataset narclim2)
             // Should never happen.
-            throw new ArgumentException($"Expected dataset to be of type {typeof(NarClim2Dataset)}, but got {dataset.GetType().Name}");
+            throw new ArgumentException($"Expected dataset to be of type {typeof(NarClim2Dataset)}, but got {options.Dataset.GetType().Name}");
 
         // Some narclim2 files have incorrect rlon values. We can use the
         // setvar.py script to correct them.

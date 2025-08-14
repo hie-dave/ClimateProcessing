@@ -1,29 +1,13 @@
 using ClimateProcessing.Models;
-using ClimateProcessing.Units;
-using System.Runtime.CompilerServices;
-using ClimateProcessing.Extensions;
-using System.Text.RegularExpressions;
 using ClimateProcessing.Configuration;
-
-[assembly: InternalsVisibleTo("ClimateProcessing.Tests")]
 
 namespace ClimateProcessing.Services;
 
 /// <summary>
 /// Default implementation of script generator that works with any climate dataset.
 /// </summary>
-public class ScriptGenerator : IScriptGenerator<IClimateDataset>
+public class ScriptGenerator : IScriptGenerator
 {
-    /// <summary>
-    /// CDO's conservative remapping operator.
-    /// </summary>
-    private const string remapConservative = "-remapcon";
-
-    /// <summary>
-    /// CDO's bilinear remapping operator.
-    /// </summary>
-    private const string remapBilinear = "remapbil";
-
     /// <summary>
     /// The file writer factory.
     /// </summary>
@@ -60,16 +44,14 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     protected readonly PBSWriter pbsLightweight;
 
     /// <summary>
-    /// Name of the variable containing the directory holding all input files
-    /// used as operands for the remap command.
+    /// The mergetime script generator service.
     /// </summary>
-    protected const string inDirVariable = "IN_DIR";
+    private readonly IMergetimeScriptGenerator mergetimeGenerator;
 
     /// <summary>
-    /// Name of the variable containing the directory holding all remapped input
-    /// files used as operands for the mergetime command.
+    /// The remapping service.
     /// </summary>
-    protected const string remapDirVariable = "REMAP_DIR";
+    private readonly IRemappingService remappingService;
 
     /// <summary>
     /// Creates a new script generator with the default file writer factory.
@@ -82,11 +64,18 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         // TODO: replace with DI.
     }
 
+    /// <summary>
+    /// Creates a new script generator.
+    /// </summary>
+    /// <param name="config">The processing configuration.</param>
+    /// <param name="pathManager">The path manager.</param>
     public ScriptGenerator(
         ProcessingConfig config,
         IPathManager pathManager) : this(config,
                                          pathManager,
-                                         new FileWriterFactory(pathManager))
+                                         new FileWriterFactory(pathManager),
+                                         new CdoMergetimeScriptGenerator(),
+                                         new RemappingService())
     {
         // TODO: replace with DI.
     }
@@ -100,7 +89,9 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     public ScriptGenerator(
         ProcessingConfig config,
         IPathManager pathManager,
-        IFileWriterFactory fileWriterFactory)
+        IFileWriterFactory fileWriterFactory,
+        IMergetimeScriptGenerator mergetimeGenerator,
+        IRemappingService remappingService)
     {
         _config = config;
         this.pathManager = pathManager;
@@ -134,82 +125,8 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             fileWriterFactory);
 
         variableManager = new ClimateVariableManager(config.Version);
-    }
-
-    /// <summary>
-    /// Generates the operator to rename a variable.
-    /// </summary>
-    /// <param name="inName">The name of the input variable.</param>
-    /// <param name="outName">The name of the output variable.</param>
-    /// <returns>The CDO operator to use for renaming.</returns>
-    internal string GenerateRenameOperator(string inName, string outName)
-    {
-        if (inName == outName)
-            return string.Empty;
-        return $"-chname,'{inName}','{outName}'";
-    }
-
-    /// <summary>
-    /// Generates the operators needed to convert the units of a variable.
-    /// </summary>
-    /// <param name="outputVar">The name of the output variable.</param>
-    /// <param name="inputUnits">The units of the input variable.</param>
-    /// <param name="targetUnits">The units of the output variable.</param>
-    /// <param name="timeStep">The time step of the variable.</param>
-    /// <returns>The CDO operators needed to convert the units.</returns>
-    internal IEnumerable<string> GenerateUnitConversionOperators(
-        string outputVar,
-        string inputUnits,
-        string targetUnits,
-        TimeStep timeStep)
-    {
-        var result = UnitConverter.AnalyseConversion(inputUnits, targetUnits);
-
-        List<string> operators = [];
-
-        if (result.RequiresConversion)
-        {
-            string expression = UnitConverter.GenerateConversionExpression(
-                inputUnits,
-                targetUnits,
-                timeStep);
-            operators.Add(expression);
-        }
-
-        if (result.RequiresRenaming)
-            operators.Add($"-setattribute,'{outputVar}@units={targetUnits}'");
-
-        return operators;
-    }
-
-    /// <summary>
-    /// Generate the operator to temporally aggregate the data.
-    /// </summary>
-    /// <param name="variable">The variable to aggregate.</param>
-    /// <returns>The CDO operator to use for temporal aggregation.</returns>
-    internal string GenerateTimeAggregationOperator(
-        ClimateVariable variable)
-    {
-        // Only aggregate if input and output timesteps differ
-        if (_config.InputTimeStep == _config.OutputTimeStep)
-            return string.Empty;
-
-        // Calculate the number of timesteps to aggregate
-        int stepsToAggregate = _config.OutputTimeStep.Hours / _config.InputTimeStep.Hours;
-
-        var aggregationMethod = variableManager.GetAggregationMethod(variable);
-        var @operator = aggregationMethod.ToCdoOperator(_config.OutputTimeStep);
-
-        return $"-{@operator},{stepsToAggregate}";
-    }
-
-    /// <summary>
-    /// Standard arguments used for all CDO invocations.
-    /// TODO: make verbosity configurable?
-    /// </summary>
-    private string GetCDOArgs()
-    {
-        return $"-L -O -v -z zip1";
+        this.mergetimeGenerator = mergetimeGenerator;
+        this.remappingService = remappingService;
     }
 
     /// <summary>
@@ -256,14 +173,14 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         IEnumerable<ClimateVariable> variables = variableManager.GetRequiredVariables();
         foreach (ClimateVariable variable in variables)
         {
-            string mergetime = await GenerateVariableMergeScript(dataset, variable);
+            string mergetime = await GenerateVariableMergetimeScript(dataset, variable);
             string rechunk = await GenerateVariableRechunkScript(dataset, variable);
 
             mergetimeScripts[variable] = mergetime;
             rechunkScripts[variable] = rechunk;
         }
 
-        string vpdScript = await vpdCalculator.GenerateVPDScript(dataset, pbsLightweight, GetCDOArgs());
+        string vpdScript = await vpdCalculator.GenerateVPDScript(dataset, pbsLightweight);
         string vpdFile = vpdCalculator.GetUnoptimisedVpdOutputFilePath(dataset);
         string vpdRechunkScript = await GenerateVPDRechunkScript(dataset, vpdFile);
         string cleanupScript = await GenerateCleanupScript(dataset);
@@ -357,16 +274,6 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     }
 
     /// <summary>
-    /// Sanitise a string to be stored in a bash variable.
-    /// </summary>
-    /// <param name="input">The string.</param>
-    /// <returns>The sanitised string.</returns>
-    internal static string SanitiseString(string input)
-    {
-        return input.Replace("$", "\\$");
-    }
-
-    /// <summary>
     /// Generate a mergetime script for the specified variable, and return the
     /// path to the generated script file.
     /// </summary>
@@ -374,7 +281,7 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
     /// <param name="variable">The variable to process.</param>
     /// <param name="outFile">The path to the output file that should be generated by the script.</param>
     /// <returns>The path to the generated script file.</returns>
-    internal async Task<string> GenerateVariableMergeScript(IClimateDataset dataset, ClimateVariable variable)
+    internal async Task<string> GenerateVariableMergetimeScript(IClimateDataset dataset, ClimateVariable variable)
     {
         VariableInfo inputMetadata = dataset.GetVariableInfo(variable);
         VariableInfo targetMetadata = variableManager.GetOutputRequirements(variable);
@@ -402,66 +309,22 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
         using IFileWriter writer = fileWriterFactory.Create(jobName);
         await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
-        await writer.WriteLineAsync("# File paths.");
-        await writer.WriteLineAsync($"{inDirVariable}=\"{SanitiseString(inDir)}\"");
-        if (!string.IsNullOrEmpty(_config.GridFile))
-            await writer.WriteLineAsync($"{remapDirVariable}=\"${{WORK_DIR}}/remap\"");
-        await writer.WriteLineAsync($"OUT_FILE=\"{SanitiseString(outFile)}\"");
-        if (!string.IsNullOrEmpty(_config.GridFile))
-            await writer.WriteLineAsync($"GRID_FILE=\"{SanitiseString(_config.GridFile)}\"");
-        await writer.WriteLineAsync();
+        MergetimeOptions opts = new MergetimeOptions(
+            inDir,
+            outFile,
+            inputMetadata,
+            targetMetadata,
+            _config.InputTimeStep,
+            _config.OutputTimeStep,
+            variableManager.GetAggregationMethod(variable),
+            _config.GridFile,
+            remappingService.GetInterpolationAlgorithm(inputMetadata, variable),
+            false,
+            false,
+            dataset
+        );
 
-        if (!string.IsNullOrEmpty(_config.GridFile))
-        {
-            await writer.WriteLineAsync($"mkdir -p \"${{{remapDirVariable}}}\"");
-            await writer.WriteLineAsync();
-        }
-
-        await WritePreMerge(writer, dataset, variable);
-
-        string rename = GenerateRenameOperator(inputMetadata.Name, targetMetadata.Name);
-        string conversion = string.Join(" ", GenerateUnitConversionOperators(targetMetadata.Name, inputMetadata.Units, targetMetadata.Units, _config.InputTimeStep));
-        string aggregation = GenerateTimeAggregationOperator(variable);
-        string unpack = "-unpack";
-        string remapOperator = GetRemapOperator(GetInterpolationAlgorithm(inputMetadata, variable));
-        string remap = string.IsNullOrEmpty(_config.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
-        string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
-        operators = Regex.Replace(operators, " +", " ");
-
-        // The above operators all take a single file as input; therefore we
-        // must perform them as a separate step to the mergetime.
-        if (!string.IsNullOrWhiteSpace(operators))
-        {
-            // Write description of processing steps.
-            await writer.WriteLineAsync("# Perform corrective operations on input files:");
-            if (!string.IsNullOrEmpty(remap))
-                await writer.WriteLineAsync("# - Remap input files to target grid.");
-            if (!string.IsNullOrEmpty(unpack))
-                await writer.WriteLineAsync("# - Unpack data.");
-            if (!string.IsNullOrEmpty(rename))
-                await writer.WriteLineAsync($"# - Rename variable from {inputMetadata.Name} to {targetMetadata.Name}.");
-            if (!string.IsNullOrEmpty(conversion))
-                await writer.WriteLineAsync($"# - Convert units from {inputMetadata.Units} to {targetMetadata.Units}.");
-            if (!string.IsNullOrEmpty(aggregation))
-                await writer.WriteLineAsync($"# - Aggregate data from {_config.InputTimeStep} to {_config.OutputTimeStep}.");
-
-            await writer.WriteLineAsync($"for FILE in \"${{{inDirVariable}}}\"/*.nc");
-            await writer.WriteLineAsync($"do");
-            await writer.WriteLineAsync($"    cdo {GetCDOArgs()} {operators} \"${{FILE}}\" \"${{{remapDirVariable}}}/$(basename \"${{FILE}}\")\"");
-            await writer.WriteLineAsync("done");
-            await writer.WriteLineAsync($"{inDirVariable}=\"${{{remapDirVariable}}}\"");
-            await writer.WriteLineAsync();
-        }
-
-        // Merge files and perform all operations in a single step.
-        await writer.WriteLineAsync("log \"Merging files...\"");
-        await writer.WriteLineAsync($"cdo {GetCDOArgs()} mergetime \"${{{inDirVariable}}}\"/*.nc \"${{OUT_FILE}}\"");
-        await writer.WriteLineAsync("log \"All files merged successfully.\"");
-        await writer.WriteLineAsync();
-
-        // Remapped files are in jobfs, and will be automatically deleted upon
-        // job completion (or failure).
-
+        await mergetimeGenerator.WriteMergetimeScriptAsync(writer, opts);
         return writer.FilePath;
     }
 
@@ -604,66 +467,5 @@ public class ScriptGenerator : IScriptGenerator<IClimateDataset>
             await writer.WriteLineAsync(script);
 
         return scriptFile;
-    }
-
-    /// <summary>
-    /// Check if a variable is expressed on a per-ground-area basis.
-    /// </summary>
-    /// <param name="units">The units of the variable.</param>
-    /// <returns>True iff the variable is expressed on a per-ground-area basis.</returns>
-    /// <remarks>This is used to decide whether to perform conservative remapping.</remarks>
-    internal static bool HasPerAreaUnits(string units)
-    {
-        // Convert to lowercase and remove whitespace and periods for consistent matching
-        units = units.ToLower().Replace(" ", "").Replace(".", "");
-
-        // Match any of these patterns:
-        // - m-2 or m^-2 (negative exponent notation)
-        // - /m2 (division notation)
-        return Regex.IsMatch(units, 
-            @"(m\^?-2|/m2)");
-    }
-
-    /// <summary>
-    /// Get an interpolation algorithm to be used when remapping the specified
-    /// variable.
-    /// </summary>
-    /// <param name="info">Metadata for the variable in the dataset being processed.</param>
-    /// <param name="variable">The variable to remap.</param>
-    /// <returns>The interpolation algorithm to use.</returns>
-    internal InterpolationAlgorithm GetInterpolationAlgorithm(VariableInfo info, ClimateVariable variable)
-    {
-        // Precipitation and shortwave radiation may require conservative
-        // remapping, if they are NOT expressed on a per-ground-area basis.
-        if (variable != ClimateVariable.Precipitation
-            && variable != ClimateVariable.ShortwaveRadiation)
-            return InterpolationAlgorithm.Bilinear;
-
-        // Check if units are expressed on a per-ground-area basis.
-        if (!HasPerAreaUnits(info.Units))
-            // E.g. W
-            // E.g. kg s-1
-            return InterpolationAlgorithm.Conservative;
-
-        // If, for example, precipitation is expressed in kg m-2 s-1, there's
-        // no need for conservative remapping.
-        return InterpolationAlgorithm.Bilinear;
-    }
-
-    /// <summary>
-    /// Get the CDO remap operator to be used when remapping the specified
-    /// variable.
-    /// </summary>
-    /// <param name="algorithm">The interpolation algorithm to use.</param>
-    /// <returns>The CDO remap operator to use.</returns>
-    /// <exception cref="ArgumentException"></exception>
-    internal static string GetRemapOperator(InterpolationAlgorithm algorithm)
-    {
-        return algorithm switch
-        {
-            InterpolationAlgorithm.Bilinear => remapBilinear,
-            InterpolationAlgorithm.Conservative => remapConservative,
-            _ => throw new ArgumentException($"Unknown remap algorithm: {algorithm}")
-        };
     }
 }

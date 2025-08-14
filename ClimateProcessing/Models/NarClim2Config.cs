@@ -43,12 +43,6 @@ public class NarClim2Config : ProcessingConfig
                    frequency: frequency);
     }
 
-    /// <inheritdoc />
-    public override ScriptGenerator CreateScriptGenerator()
-    {
-        return new NarClim2ScriptGenerator(this);
-    }
-
     /// <summary>
     /// Get the list of domains to process.
     /// </summary>

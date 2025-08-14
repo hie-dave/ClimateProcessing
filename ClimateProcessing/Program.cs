@@ -1,7 +1,9 @@
 using CommandLine;
 using ClimateProcessing.Models;
 using ClimateProcessing.Services;
-using System.Diagnostics;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("ClimateProcessing.Tests")]
 
 // Parse command line arguments
 var result = Parser.Default.ParseArguments<NarClim2Config>(args);
@@ -24,7 +26,7 @@ static async Task Process(ProcessingConfig config)
     config.Validate();
 
     // Generate scripts.
-    ScriptGenerator generator = config.CreateScriptGenerator();
+    ScriptGenerator generator = new(config);
     List<string> scripts = new List<string>();
     foreach (IClimateDataset dataset in config.CreateDatasets())
     {

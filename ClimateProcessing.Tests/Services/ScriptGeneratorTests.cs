@@ -100,144 +100,6 @@ public class ScriptGeneratorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("K", "K", "temp", false, false)]  // No conversion needed
-    [InlineData("K", "degC", "temp", true, true)]  // Conversion needed
-    [InlineData("W/m2", "W m-2", "rad", false, true)]  // Only renaming needed
-    public void GenerateUnitConversionOperators_GeneratesCorrectOperators(
-        string inputUnits,
-        string targetUnits,
-        string outputVar,
-        bool expectsConversion,
-        bool expectsRenaming)
-    {
-        var operators = _generator.GenerateUnitConversionOperators(
-            outputVar,
-            inputUnits,
-            targetUnits,
-            TimeStep.Hourly).ToList();
-
-        if (expectsConversion)
-        {
-            Assert.Contains(operators, op => op.StartsWith("-subc"));
-        }
-        if (expectsRenaming)
-        {
-            Assert.Contains(operators, op => op.StartsWith("-setattribute"));
-        }
-        if (!expectsConversion && !expectsRenaming)
-        {
-            Assert.Empty(operators);
-        }
-    }
-
-    [Theory]
-    [InlineData(1, 24, true)]   // Hourly to daily
-    [InlineData(24, 24, false)] // Daily to daily
-    [InlineData(3, 24, true)]   // 3-hourly to daily
-    public void GenerateTimeAggregationOperators_GeneratesCorrectOperators(
-        int inputHours,
-        int outputHours,
-        bool requiresAggregation)
-    {
-        var config = new NarClim2Config
-        {
-            Project = _config.Project,
-            Queue = _config.Queue,
-            Walltime = _config.Walltime,
-            Ncpus = _config.Ncpus,
-            Memory = _config.Memory,
-            OutputDirectory = _config.OutputDirectory,
-            InputTimeStepHours = inputHours,
-            OutputTimeStepHours = outputHours
-        };
-        var generator = new ScriptGenerator(config);
-
-        string @operator = generator.GenerateTimeAggregationOperator(
-            ClimateVariable.Temperature);
-
-        if (requiresAggregation)
-        {
-            if (outputHours == 24)
-                Assert.StartsWith("-daymean", @operator);
-            else
-                Assert.StartsWith("-timselmean", @operator);
-        }
-        else
-        {
-            Assert.Empty(@operator);
-        }
-    }
-
-    [Theory]
-    [InlineData("tas", "tas", false)]      // Same name
-    [InlineData("temp", "tas", true)]      // Different name
-    [InlineData("pr", "prec", true)]       // Different name
-    public void GenerateVariableRenameCommand_DetectsProcessingNeeds(
-        string inputVar,
-        string outputVar,
-        bool requiresProcessing)
-    {
-        string op = _generator.GenerateRenameOperator(inputVar, outputVar);
-        Assert.Equal(requiresProcessing, !string.IsNullOrEmpty(op));
-    }
-
-    [Theory]
-    [InlineData("kg m-2 s-1", true)]  // Standard notation
-    [InlineData("kg/m2/s", true)]     // Division notation
-    [InlineData("kg.m-2.s-1", true)]  // Dot notation
-    [InlineData("kg m^-2 s^-1", true)] // Caret notation
-    [InlineData("KG M-2 S-1", true)]   // Case insensitive
-    [InlineData("kg  m-2  s-1", true)] // Extra spaces
-    [InlineData("kgm-2s-1", true)]     // No separators
-    [InlineData("W", false)]           // No per-area units
-    [InlineData("kg s-1", false)]      // Time only, no area
-    [InlineData("", false)]            // Empty string
-    [InlineData("m2", false)]          // Area but not per-area
-    [InlineData("kg/s/m2", true)]      // Different order
-    public void HasPerAreaUnits_DetectsUnitsCorrectly(string units, bool expectedResult)
-    {
-        // Now we can test HasPerAreaUnits directly since it's internal
-        var result = ScriptGenerator.HasPerAreaUnits(units);
-        Assert.Equal(expectedResult, result);
-    }
-
-    [Theory]
-    [InlineData(ClimateVariable.Temperature)]
-    [InlineData(ClimateVariable.SpecificHumidity)]
-    public void GetRemapAlgorithm_NonAreaSensitiveVariables_AlwaysReturnsBilinear(ClimateVariable variable)
-    {
-        var info = new VariableInfo(Enum.GetName(variable)!, "any_units");
-        var result = _generator.GetInterpolationAlgorithm(info, variable);
-
-        Assert.Equal(InterpolationAlgorithm.Bilinear, result);
-    }
-
-    [Theory]
-    [InlineData(ClimateVariable.Precipitation)]
-    [InlineData(ClimateVariable.ShortwaveRadiation)]
-    public void GetRemapAlgorithm_AreaSensitiveVariables_DependsOnUnits(ClimateVariable variable)
-    {
-        // Should use conservative remapping when not per-area
-        var nonAreaInfo = new VariableInfo(Enum.GetName(variable)!, "W");
-        var nonAreaResult = _generator.GetInterpolationAlgorithm(nonAreaInfo, variable);
-        Assert.Equal(InterpolationAlgorithm.Conservative, nonAreaResult);
-
-        // Should use bilinear remapping when per-area
-        var areaInfo = new VariableInfo(Enum.GetName(variable)!, "W m-2");
-        var areaResult = _generator.GetInterpolationAlgorithm(areaInfo, variable);
-        Assert.Equal(InterpolationAlgorithm.Bilinear, areaResult);
-    }
-
-    [Fact]
-    public void GetRemapOperator_UnknownAlgorithm_ThrowsArgumentException()
-    {
-        InterpolationAlgorithm algorithm = (InterpolationAlgorithm)999;
-        ArgumentException exception = Assert.Throws<ArgumentException>(
-            () => ScriptGenerator.GetRemapOperator(algorithm));
-        Assert.Contains("algorithm", exception.Message);
-    }
-
-    [Theory]
     [InlineData("input dir with spaces")]
     [InlineData("/path/with/special/$chars")]
     [InlineData("/normal/path")]
@@ -259,7 +121,7 @@ public class ScriptGeneratorTests : IDisposable
         ScriptGenerator generator = new(config);
         StaticMockDataset dataset = new(inputDir);
 
-        string scriptPath = await generator.GenerateVariableMergeScript(
+        string scriptPath = await generator.GenerateVariableMergetimeScript(
             dataset,
             ClimateVariable.Temperature);
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
@@ -303,7 +165,7 @@ public class ScriptGeneratorTests : IDisposable
         ScriptGenerator generator = new(config);
         StaticMockDataset dataset = new("/input", varName, inputUnits);
 
-        string scriptPath = await generator.GenerateVariableMergeScript(
+        string scriptPath = await generator.GenerateVariableMergetimeScript(
             dataset,
             variable);
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
@@ -381,7 +243,7 @@ public class ScriptGeneratorTests : IDisposable
         ScriptGenerator generator = new(_config);
         StaticMockDataset dataset = new("/input", inputName, inputUnits);
 
-        string scriptPath = await generator.GenerateVariableMergeScript(
+        string scriptPath = await generator.GenerateVariableMergetimeScript(
             dataset,
             variable);
         string scriptContent = await File.ReadAllTextAsync(scriptPath);
@@ -447,7 +309,7 @@ public class ScriptGeneratorTests : IDisposable
         ClimateVariable variable = (ClimateVariable)666;
         Mock<IClimateDataset> mockDataset = new();
         mockDataset.Setup(d => d.GetVariableInfo(variable)).Returns(new VariableInfo("x", "y"));
-        ArgumentException ex = await Assert.ThrowsAnyAsync<ArgumentException>(async () => await generator.GenerateVariableMergeScript(mockDataset.Object, variable));
+        ArgumentException ex = await Assert.ThrowsAnyAsync<ArgumentException>(async () => await generator.GenerateVariableMergetimeScript(mockDataset.Object, variable));
         Assert.Equal("No configuration found for variable 666", ex.Message);
     }
 
@@ -492,7 +354,7 @@ public class ScriptGeneratorTests : IDisposable
     {
         PathManager pathManager = new(_config.OutputDirectory);
         TrackingFileWriterFactory factory = new(_config.OutputDirectory);
-        ScriptGenerator generator = new(_config, pathManager, factory);
+        ScriptGenerator generator = new(_config, pathManager, factory, new CdoMergetimeScriptGenerator(), new RemappingService());
         _config.InputDirectory = "/input";
         DynamicMockDataset dataset = new(_config.InputDirectory, _config.OutputDirectory);
 

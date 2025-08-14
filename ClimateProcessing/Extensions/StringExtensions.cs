@@ -3,6 +3,16 @@ namespace ClimateProcessing.Extensions;
 public static class StringExtensions
 {
     /// <summary>
+    /// Sanitise a string to be stored in a bash variable.
+    /// </summary>
+    /// <param name="input">The string.</param>
+    /// <returns>The sanitised string.</returns>
+    public static string SanitiseBash(this string input)
+    {
+        return input.Replace("$", "\\$");
+    }
+
+    /// <summary>
     /// Replaces the first occurrence of a specified string with another string.
     /// </summary>
     /// <param name="text">The string to search in.</param>

@@ -12,9 +12,4 @@ internal class TestProcessingConfig : ProcessingConfig
     {
         throw new NotImplementedException();
     }
-
-    public override ScriptGenerator CreateScriptGenerator()
-    {
-        throw new NotImplementedException();
-    }
 }

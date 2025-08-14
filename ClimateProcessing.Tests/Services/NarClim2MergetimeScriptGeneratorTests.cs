@@ -7,42 +7,27 @@ using ClimateProcessing.Tests.Mocks;
 using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
 using Xunit.Abstractions;
+using ClimateProcessing.Units;
+using ClimateProcessing.Tests.Helpers;
 
 namespace ClimateProcessing.Tests.Services;
 
-public class NarClim2ScriptGeneratorTests : IDisposable
+public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
 {
-    private const string outputDirectoryPrefix = "narclim2_script_generator_tests_output";
-    private readonly string outputDirectory;
-    private readonly NarClim2Config config;
-    private readonly NarClim2ScriptGenerator generator;
+    private readonly TempDirectory outputDirectory;
+    private readonly NarClim2MergetimeScriptGenerator generator;
     private readonly ITestOutputHelper outputHelper;
 
-    public NarClim2ScriptGeneratorTests(ITestOutputHelper outputHelper)
+    public NarClim2MergetimeScriptGeneratorTests(ITestOutputHelper outputHelper)
     {
         this.outputHelper = outputHelper;
-        outputDirectory = Path.Combine(Path.GetTempPath(), $"{outputDirectoryPrefix}_{Guid.NewGuid()}");
-        Directory.CreateDirectory(outputDirectory);
-
-        config = new NarClim2Config
-        {
-            OutputDirectory = outputDirectory,
-            ChunkSizeSpatial = 10,
-            ChunkSizeTime = 5,
-            CompressOutput = true,
-            CompressionLevel = 4,
-            InputTimeStepHours = 3,
-            OutputTimeStepHours = 3,
-            Version = ModelVersion.Dave
-        };
-
-        generator = new NarClim2ScriptGenerator(config);
+        outputDirectory = TempDirectory.Create(GetType().Name);
+        generator = new NarClim2MergetimeScriptGenerator();
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(outputDirectory))
-            Directory.Delete(outputDirectory, true);
+        outputDirectory.Dispose();
     }
 
     /// <summary>
@@ -80,14 +65,34 @@ public class NarClim2ScriptGeneratorTests : IDisposable
         return mockDataset;
     }
 
+    private MergetimeOptions CreateOptions(IClimateDataset dataset)
+    {
+        return new MergetimeOptions(
+            "${IN_DIR}",
+            "${OUT_FILE}",
+            new VariableInfo("tas", "K"),
+            new VariableInfo("tas", "K"),
+            TimeStep.Daily,
+            TimeStep.Daily,
+            AggregationMethod.Mean,
+            null,
+            InterpolationAlgorithm.Conservative,
+            false,
+            false,
+            dataset);
+    }
+
     [Theory]
     [InlineData(NarClim2Domain.AUS18, NarClim2Constants.Files.RlonValuesFileAUS18)]
     [InlineData(NarClim2Domain.SEAus04, NarClim2Constants.Files.RlonValuesFileSEAus04)]
     public async Task GenerateVariableMergeScript_UsesCorrectPath(NarClim2Domain domain, string expectedFileName)
     {
         Mock<NarClim2Dataset> mockDataset = CreateMockDataset(domain: domain);
-        string scriptPath = await generator.GenerateVariableMergeScript(mockDataset.Object, ClimateVariable.Temperature);
-        string script = await File.ReadAllTextAsync(scriptPath);
+        var options = CreateOptions(mockDataset.Object);
+
+        using InMemoryScriptWriter writer = new();
+        await generator.WriteMergetimeScriptAsync(writer, options);
+        string script = writer.GetContent();
 
         // The script should use the correct rlon values file for this domain.
         Assert.Contains("setvar.py", script);
@@ -99,24 +104,20 @@ public class NarClim2ScriptGeneratorTests : IDisposable
     public async Task GenerateVariableMergeScript_WithNonNarClim2Dataset_ThrowsArgumentException()
     {
         IClimateDataset mockDataset = new StaticMockDataset("/input");
+        var options = CreateOptions(mockDataset);
 
+        using InMemoryScriptWriter writer = new();
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            generator.GenerateVariableMergeScript(mockDataset, ClimateVariable.ShortwaveRadiation));
+            generator.WriteMergetimeScriptAsync(writer, options));
     }
 
     [Fact]
-    public async Task GenerateScriptsAsync_WithNoInputFileTree_Throws()
+    public void GetRemapOperator_UnknownAlgorithm_ThrowsArgumentException()
     {
-        NarClim2Dataset dataset = new NarClim2Dataset("/path/to/narclim2");
-
-        // Attempting to generate scripts without setting up an appropriate
-        // file tree is going to result in an exception.
-        // TODO: is it worth setting up a suitable file tree?
-        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await generator.GenerateScriptsAsync(dataset));
-
-        Assert.NotNull(ex);
-        Assert.Contains("No input files found for variable", ex.Message);
+        InterpolationAlgorithm algorithm = (InterpolationAlgorithm)999;
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => CdoMergetimeScriptGenerator.GetRemapOperator(algorithm));
+        Assert.Contains("algorithm", exception.Message);
     }
 
     [Fact]
@@ -140,15 +141,31 @@ public class NarClim2ScriptGeneratorTests : IDisposable
             fileNames.Select(name => new TempFile(dirs[v].AbsolutePath, string.Format(name, v)))));
 
         NarClim2Dataset dataset = new NarClim2Dataset(narclimDirectory.AbsolutePath);
+
+        ProcessingConfig config = new NarClim2Config()
+        {
+            OutputDirectory = outputDirectory.AbsolutePath,
+            ChunkSizeSpatial = 10,
+            ChunkSizeTime = 5,
+            CompressOutput = true,
+            CompressionLevel = 4,
+            InputTimeStepHours = 3,
+            OutputTimeStepHours = 3,
+            Version = ModelVersion.Dave
+        };
+        PathManager pathManager = new(outputDirectory.AbsolutePath);
+        FileWriterFactory factory = new(pathManager);
+
+        ScriptGenerator generator = new ScriptGenerator(config, pathManager, factory, this.generator, new RemappingService());
         string script = await generator.GenerateScriptsAsync(dataset);
         Assert.NotNull(script);
 
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "logs"));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "streams"));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "output", dataset.GetOutputDirectory()));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "tmp", dataset.GetOutputDirectory()));
+        AssertEmptyDirectory(Path.Combine(outputDirectory.AbsolutePath, "logs"));
+        AssertEmptyDirectory(Path.Combine(outputDirectory.AbsolutePath, "streams"));
+        AssertEmptyDirectory(Path.Combine(outputDirectory.AbsolutePath, "output", dataset.GetOutputDirectory()));
+        AssertEmptyDirectory(Path.Combine(outputDirectory.AbsolutePath, "tmp", dataset.GetOutputDirectory()));
 
-        string scriptsDirectory = Path.Combine(outputDirectory, "scripts");
+        string scriptsDirectory = Path.Combine(outputDirectory.AbsolutePath, "scripts");
         Assert.True(Directory.Exists(scriptsDirectory));
         Assert.NotEmpty(Directory.EnumerateFileSystemEntries(scriptsDirectory));
 
@@ -183,7 +200,7 @@ public class NarClim2ScriptGeneratorTests : IDisposable
 
             // Read expected script from resource in assembly.
             string expectedScript = await ReadResourceAsync($"{resourcePrefix}.{scriptName}");
-            expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", outputDirectory);
+            expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", outputDirectory.AbsolutePath);
             expectedScript = expectedScript.Replace("@#INPUT_DIRECTORY#@", narclimDirectory.AbsolutePath);
 
             // No custom error messages in xunit, apparently.

@@ -178,16 +178,6 @@ public class NarClim2ConfigTests
     }
 
     [Fact]
-    public void CreateScriptGenerator_ReturnsNarClim2ScriptGenerator()
-    {
-        var config = CreateValidConfig();
-
-        var generator = config.CreateScriptGenerator();
-
-        Assert.IsType<NarClim2ScriptGenerator>(generator);
-    }
-
-    [Fact]
     public void Validate_WithValidConfig_DoesNotThrow()
     {
         var config = CreateValidConfig();
