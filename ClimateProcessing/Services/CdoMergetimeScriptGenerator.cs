@@ -34,18 +34,11 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
 
     public async Task WriteMergetimeScriptAsync(IFileWriter writer, IMergetimeOptions options)
     {
-        VariableInfo inputMetadata = options.InputMetadata;
-        VariableInfo targetMetadata = options.TargetMetadata;
-
-        string inDir = options.InputDirectory;
-        string outFile = options.OutputFile;
-
-
         await writer.WriteLineAsync("# File paths.");
-        await writer.WriteLineAsync($"{inDirVariable}=\"{inDir.SanitiseBash()}\"");
+        await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");
         if (!string.IsNullOrEmpty(options.GridFile))
             await writer.WriteLineAsync($"{remapDirVariable}=\"${{WORK_DIR}}/remap\"");
-        await writer.WriteLineAsync($"OUT_FILE=\"{outFile.SanitiseBash()}\"");
+        await writer.WriteLineAsync($"OUT_FILE=\"{options.OutputFile.SanitiseBash()}\"");
         if (!string.IsNullOrEmpty(options.GridFile))
             await writer.WriteLineAsync($"GRID_FILE=\"{options.GridFile.SanitiseBash()}\"");
         await writer.WriteLineAsync();
@@ -58,8 +51,8 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
 
         await WritePreMerge(writer, options);
 
-        string rename = GenerateRenameOperator(inputMetadata.Name, targetMetadata.Name);
-        string conversion = string.Join(" ", GenerateUnitConversionOperators(targetMetadata.Name, inputMetadata.Units, targetMetadata.Units, options.InputTimeStep));
+        string rename = GenerateRenameOperator(options.InputMetadata.Name, options.TargetMetadata.Name);
+        string conversion = string.Join(" ", GenerateUnitConversionOperators(options.TargetMetadata.Name, options.InputMetadata.Units, options.TargetMetadata.Units, options.InputTimeStep));
         string aggregation = GenerateTimeAggregationOperator(options.InputTimeStep, options.OutputTimeStep, options.AggregationMethod);
         string unpack = "-unpack";
         string remapOperator = GetRemapOperator(options.RemapAlgorithm);
@@ -78,9 +71,9 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
             if (!string.IsNullOrEmpty(unpack))
                 await writer.WriteLineAsync("# - Unpack data.");
             if (!string.IsNullOrEmpty(rename))
-                await writer.WriteLineAsync($"# - Rename variable from {inputMetadata.Name} to {targetMetadata.Name}.");
+                await writer.WriteLineAsync($"# - Rename variable from {options.InputMetadata.Name} to {options.TargetMetadata.Name}.");
             if (!string.IsNullOrEmpty(conversion))
-                await writer.WriteLineAsync($"# - Convert units from {inputMetadata.Units} to {targetMetadata.Units}.");
+                await writer.WriteLineAsync($"# - Convert units from {options.InputMetadata.Units} to {options.TargetMetadata.Units}.");
             if (!string.IsNullOrEmpty(aggregation))
                 await writer.WriteLineAsync($"# - Aggregate data from {options.InputTimeStep} to {options.OutputTimeStep}.");
 

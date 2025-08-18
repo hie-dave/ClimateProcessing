@@ -130,19 +130,6 @@ public class ScriptGenerator : IScriptGenerator
     }
 
     /// <summary>
-    /// Generate a script for rechunking VPD data.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The script path.</returns>
-    public async Task<string> GenerateVPDRechunkScript(IClimateDataset dataset, string inFile)
-    {
-        string jobName = $"rechunk_vpd_{dataset.DatasetName}";
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Output);
-        string outFile = VpdCalculator.GetVpdFilePath(dataset, temperatureFile);
-        return await GenerateRechunkScript(jobName, inFile, outFile, true);
-    }
-
-    /// <summary>
     /// Generate processing scripts, and return the path to the top-level script.
     /// </summary>
     /// <param name="dataset">The dataset.</param>
@@ -251,14 +238,33 @@ public class ScriptGenerator : IScriptGenerator
     }
 
     /// <summary>
-    /// Write the pre-merge commands to the specified writer.
+    /// Generate a wrapper script that executes the given scripts.
     /// </summary>
-    /// <param name="writer">The text writer.</param>
-    /// <param name="dataset">The climate dataset being processed.</param>
-    /// <param name="variable">The variable of the dataset being processed.</param>
-    protected virtual Task WritePreMerge(IFileWriter writer, IClimateDataset dataset, ClimateVariable variable)
+    /// <param name="scripts">The script files to execute.</param>
+    public static async Task<string> GenerateWrapperScript(string outputDirectory, IEnumerable<string> scripts)
     {
-        return Task.CompletedTask;
+        PathManager pathManager = new(outputDirectory);
+
+        string jobName = "wrapper";
+        string scriptPath = pathManager.GetBasePath(PathType.Script);
+        string scriptFile = Path.Combine(scriptPath, jobName);
+
+        using IFileWriter writer = new ScriptWriter(scriptFile);
+
+        await writer.WriteLineAsync("#!/usr/bin/env bash");
+        await writer.WriteLineAsync("# Master-level script which executes all job submission scripts to submit all PBS jobs.");
+        await writer.WriteLineAsync();
+
+        await WriteAutoGenerateHeader(writer);
+
+        await writer.WriteLineAsync("set -euo pipefail");
+        await writer.WriteLineAsync();
+
+        // Execute all scripts (making assumptions about file permissions).
+        foreach (string script in scripts)
+            await writer.WriteLineAsync(script);
+
+        return scriptFile;
     }
 
     /// <summary>
@@ -429,6 +435,19 @@ public class ScriptGenerator : IScriptGenerator
     }
 
     /// <summary>
+    /// Generate a script for rechunking VPD data.
+    /// </summary>
+    /// <param name="dataset">The dataset.</param>
+    /// <returns>The script path.</returns>
+    private async Task<string> GenerateVPDRechunkScript(IClimateDataset dataset, string inFile)
+    {
+        string jobName = $"rechunk_vpd_{dataset.DatasetName}";
+        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Output);
+        string outFile = VpdCalculator.GetVpdFilePath(dataset, temperatureFile);
+        return await GenerateRechunkScript(jobName, inFile, outFile, true);
+    }
+
+    /// <summary>
     /// Write a comment to a script which indicates that it was automatically
     /// generated.
     /// </summary>
@@ -437,35 +456,5 @@ public class ScriptGenerator : IScriptGenerator
     {
         await writer.WriteLineAsync("# This script was automatically generated. Do not modify.");
         await writer.WriteLineAsync();
-    }
-
-    /// <summary>
-    /// Generate a wrapper script that executes the given scripts.
-    /// </summary>
-    /// <param name="scripts">The script files to execute.</param>
-    public static async Task<string> GenerateWrapperScript(string outputDirectory, IEnumerable<string> scripts)
-    {
-        PathManager pathManager = new(outputDirectory);
-
-        string jobName = "wrapper";
-        string scriptPath = pathManager.GetBasePath(PathType.Script);
-        string scriptFile = Path.Combine(scriptPath, jobName);
-
-        using IFileWriter writer = new ScriptWriter(scriptFile);
-
-        await writer.WriteLineAsync("#!/usr/bin/env bash");
-        await writer.WriteLineAsync("# Master-level script which executes all job submission scripts to submit all PBS jobs.");
-        await writer.WriteLineAsync();
-
-        await WriteAutoGenerateHeader(writer);
-
-        await writer.WriteLineAsync("set -euo pipefail");
-        await writer.WriteLineAsync();
-
-        // Execute all scripts (making assumptions about file permissions).
-        foreach (string script in scripts)
-            await writer.WriteLineAsync(script);
-
-        return scriptFile;
     }
 }
