@@ -6,34 +6,35 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Calculates VPD (Vapor Pressure Deficit) for a given dataset.
 /// </summary>
-public class VpdCalculator
+public class VpdCalculator : IVariableProcessor
 {
+    /// <summary>
+    /// The dependencies of the VPD calculation.
+    /// </summary>
+    private static readonly HashSet<ClimateVariableFormat> dependencies = new HashSet<ClimateVariableFormat>([
+        ClimateVariableFormat.Timeseries(ClimateVariable.Temperature),
+        ClimateVariableFormat.Timeseries(ClimateVariable.SpecificHumidity),
+        ClimateVariableFormat.Timeseries(ClimateVariable.SurfacePressure),
+    ]);
+
     /// <summary>
     /// The VPD estimation method to use.
     /// </summary>
     private readonly VPDMethod method;
 
-    /// <summary>
-    /// The path manager to use.
-    /// </summary>
-    private readonly IPathManager pathManager;
+    /// <inheritdoc/>
+    public ClimateVariable TargetVariable => ClimateVariable.Vpd;
 
-    /// <summary>
-    /// The file writer factory to use.
-    /// </summary>
-    private readonly IFileWriterFactory fileWriterFactory;
+    /// <inheritdoc/>
+    public IReadOnlySet<ClimateVariableFormat> Dependencies => dependencies;
 
     /// <summary>
     /// Creates a new instance of the <see cref="VpdCalculator"/> class.
     /// </summary>
     /// <param name="method">The VPD estimation method to use.</param>
-    /// <param name="pathManager">The path manager to use.</param>
-    /// <param name="fileWriterFactory">The file writer factory to use.</param>
-    public VpdCalculator(VPDMethod method, IPathManager pathManager, IFileWriterFactory fileWriterFactory)
+    public VpdCalculator(VPDMethod method)
     {
         this.method = method;
-        this.pathManager = pathManager;
-        this.fileWriterFactory = fileWriterFactory;
     }
 
     /// <summary>
@@ -42,19 +43,19 @@ public class VpdCalculator
     /// <param name="dataset">The dataset.</param>
     /// <param name="pbsWriter">The PBS writer to use.</param>
     /// <returns>The script.</returns>
-    public async Task<string> GenerateVPDScript(
+    public async Task<IReadOnlyList<Job>> CreateJobsAsync(
         IClimateDataset dataset,
-        PBSWriter pbsWriter)
+        IJobCreationContext context)
     {
         string jobName = $"calc_vpd_{dataset.DatasetName}";
-        using IFileWriter writer = fileWriterFactory.Create(jobName);
+        using IFileWriter writer = context.FileWriterFactory.Create(jobName);
 
-        string humidityFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working);
-        string pressureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working);
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
+        string humidityFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working);
+        string pressureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working);
+        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
 
         // Generate an output file name.
-        string outFile = GetUnoptimisedVpdOutputFilePath(dataset);
+        string outFile = GetUnoptimisedVpdOutputFilePath(context, dataset);
 
         // Equation file is written to JobFS, so it will never require a storage
         // directive.
@@ -66,7 +67,7 @@ public class VpdCalculator
         ];
         IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        await pbsWriter.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"HUSS_FILE=\"{humidityFile}\"");
@@ -102,7 +103,12 @@ public class VpdCalculator
         // by the rechunk_X jobs, which may not have run yet.
 
         // Return the path to the generated script.
-        return writer.FilePath;
+        return [new Job(
+            jobName,
+            writer.FilePath,
+            ClimateVariableFormat.Timeseries(ClimateVariable.Vpd),
+            outFile,
+            Dependencies.Select(context.DependencyResolver.GetJob))];
     }
 
     /// <summary>
@@ -182,11 +188,12 @@ public class VpdCalculator
     /// <summary>
     /// Get the path to the unoptimised VPD output file for a dataset.
     /// </summary>
+    /// <param name="context">The job creation context.</param>
     /// <param name="dataset">The dataset.</param>
     /// <returns>The output file path.</returns>
-    public string GetUnoptimisedVpdOutputFilePath(IClimateDataset dataset)
+    public string GetUnoptimisedVpdOutputFilePath(IJobCreationContext context, IClimateDataset dataset)
     {
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
+        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
         return GetVpdFilePath(dataset, temperatureFile);
     }
 
@@ -201,5 +208,4 @@ public class VpdCalculator
             || variable == ClimateVariable.SurfacePressure
             || variable == ClimateVariable.Temperature;
     }
-
 }

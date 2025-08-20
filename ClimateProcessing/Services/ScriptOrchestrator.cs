@@ -1,12 +1,13 @@
 using ClimateProcessing.Models;
 using ClimateProcessing.Configuration;
+using ClimateProcessing.Models.Options;
 
 namespace ClimateProcessing.Services;
 
 /// <summary>
 /// Default implementation of script generator that works with any climate dataset.
 /// </summary>
-public class ScriptGenerator : IScriptGenerator
+public class ScriptOrchestrator : IScriptGenerator
 {
     /// <summary>
     /// The file writer factory.
@@ -24,11 +25,6 @@ public class ScriptGenerator : IScriptGenerator
     protected readonly IPathManager pathManager;
 
     /// <summary>
-    /// The VPD calculator service.
-    /// </summary>
-    private readonly VpdCalculator vpdCalculator;
-
-    /// <summary>
     /// The climate variable manager service.
     /// </summary>
     protected readonly IClimateVariableManager variableManager;
@@ -44,11 +40,6 @@ public class ScriptGenerator : IScriptGenerator
     protected readonly PBSWriter pbsLightweight;
 
     /// <summary>
-    /// The mergetime script generator service.
-    /// </summary>
-    private readonly IMergetimeScriptGenerator mergetimeGenerator;
-
-    /// <summary>
     /// The remapping service.
     /// </summary>
     private readonly IRemappingService remappingService;
@@ -57,7 +48,7 @@ public class ScriptGenerator : IScriptGenerator
     /// Creates a new script generator with the default file writer factory.
     /// </summary>
     /// <param name="config">The processing configuration.</param>
-    public ScriptGenerator(ProcessingConfig config) : this(
+    public ScriptOrchestrator(ProcessingConfig config) : this(
         config,
         new PathManager(config.OutputDirectory))
     {
@@ -69,12 +60,11 @@ public class ScriptGenerator : IScriptGenerator
     /// </summary>
     /// <param name="config">The processing configuration.</param>
     /// <param name="pathManager">The path manager.</param>
-    public ScriptGenerator(
+    public ScriptOrchestrator(
         ProcessingConfig config,
         IPathManager pathManager) : this(config,
                                          pathManager,
                                          new FileWriterFactory(pathManager),
-                                         new CdoMergetimeScriptGenerator(),
                                          new RemappingService())
     {
         // TODO: replace with DI.
@@ -86,16 +76,17 @@ public class ScriptGenerator : IScriptGenerator
     /// <param name="config">The processing configuration.</param>
     /// <param name="pathManager">The path manager.</param>
     /// <param name="fileWriterFactory">The file writer factory.</param>
-    public ScriptGenerator(
+    /// <param name="remappingService">The remapping service.</param>
+    public ScriptOrchestrator(
         ProcessingConfig config,
         IPathManager pathManager,
         IFileWriterFactory fileWriterFactory,
-        IMergetimeScriptGenerator mergetimeGenerator,
         IRemappingService remappingService)
     {
         _config = config;
         this.pathManager = pathManager;
         this.fileWriterFactory = fileWriterFactory;
+        this.remappingService = remappingService;
 
         PBSWalltime walltime = PBSWalltime.Parse(config.Walltime);
         PBSConfig pbsConfig = new(
@@ -118,15 +109,7 @@ public class ScriptGenerator : IScriptGenerator
             walltime
         );
         pbsLightweight = new PBSWriter(lightweightConfig, pathManager);
-
-        vpdCalculator = new VpdCalculator(
-            config.VPDMethod,
-            pathManager,
-            fileWriterFactory);
-
         variableManager = new ClimateVariableManager(config.Version);
-        this.mergetimeGenerator = mergetimeGenerator;
-        this.remappingService = remappingService;
     }
 
     /// <summary>
@@ -138,6 +121,36 @@ public class ScriptGenerator : IScriptGenerator
     {
         pathManager.CreateDirectoryTree(dataset);
 
+        DependencyResolver dependencyResolver = new DependencyResolver();
+
+        JobCreationContext context = new JobCreationContext(
+            _config,
+            pathManager,
+            fileWriterFactory,
+            variableManager,
+            pbsLightweight,
+            pbsHeavyweight,
+            remappingService,
+            dependencyResolver
+        );
+
+        // Process each variable.
+        // TODO: jobs must be created in order, so that dependencies are satisfied.
+        IEnumerable<IVariableProcessor> variables = dataset.GetProcessors(context);
+        foreach (IVariableProcessor processor in variables)
+        {
+            IEnumerable<Job> jobs = await processor.CreateJobsAsync(dataset, context);
+            dependencyResolver.AddJobs(jobs);
+        }
+
+        string cleanupScript = await GenerateCleanupScript(dataset);
+
+        // Add job submission logic.
+        bool requiresVpd = _config.Version == ModelVersion.Dave;
+        bool vpdEmpty = true;
+        bool allDepsEmpty = true;
+
+        // Build job submission script.
         string submitJobName = $"submit_{dataset.DatasetName}";
         using IFileWriter submitScript = fileWriterFactory.Create(submitJobName);
 
@@ -154,30 +167,7 @@ public class ScriptGenerator : IScriptGenerator
         await submitScript.WriteLineAsync($"mkdir -p \"{_config.OutputDirectory}\"");
         await submitScript.WriteLineAsync();
 
-        // Process each variable.
-        Dictionary<ClimateVariable, string> mergetimeScripts = new();
-        Dictionary<ClimateVariable, string> rechunkScripts = new();
-        IEnumerable<ClimateVariable> variables = variableManager.GetRequiredVariables();
-        foreach (ClimateVariable variable in variables)
-        {
-            string mergetime = await GenerateVariableMergetimeScript(dataset, variable);
-            string rechunk = await GenerateVariableRechunkScript(dataset, variable);
-
-            mergetimeScripts[variable] = mergetime;
-            rechunkScripts[variable] = rechunk;
-        }
-
-        string vpdScript = await vpdCalculator.GenerateVPDScript(dataset, pbsLightweight);
-        string vpdFile = vpdCalculator.GetUnoptimisedVpdOutputFilePath(dataset);
-        string vpdRechunkScript = await GenerateVPDRechunkScript(dataset, vpdFile);
-        string cleanupScript = await GenerateCleanupScript(dataset);
-
-        // Add job submission logic.
-        bool requiresVpd = _config.Version == ModelVersion.Dave;
-        bool vpdEmpty = true;
-        bool allDepsEmpty = true;
-
-        foreach (ClimateVariable variable in variables)
+        foreach (IVariableProcessor variable in variables)
         {
             // Submit mergetime script.
             await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub \"{mergetimeScripts[variable]}\")\"");
@@ -268,73 +258,6 @@ public class ScriptGenerator : IScriptGenerator
     }
 
     /// <summary>
-    /// Generate a job name.
-    /// </summary>
-    /// <param name="prefix">Job name prefix which provides context about the job.</param>
-    /// <param name="info">Metadata for the variable in the dataset being processed.</param>
-    /// <param name="dataset">The dataset being processed.</param>
-    /// <returns>A job name.</returns>
-    private string GetJobName(string prefix, VariableInfo info, IClimateDataset dataset)
-    {
-        return $"{prefix}_{info.Name}_{dataset.DatasetName}";
-    }
-
-    /// <summary>
-    /// Generate a mergetime script for the specified variable, and return the
-    /// path to the generated script file.
-    /// </summary>
-    /// <param name="dataset">The dataset to process.</param>
-    /// <param name="variable">The variable to process.</param>
-    /// <param name="outFile">The path to the output file that should be generated by the script.</param>
-    /// <returns>The path to the generated script file.</returns>
-    internal async Task<string> GenerateVariableMergetimeScript(IClimateDataset dataset, ClimateVariable variable)
-    {
-        VariableInfo inputMetadata = dataset.GetVariableInfo(variable);
-        VariableInfo targetMetadata = variableManager.GetOutputRequirements(variable);
-
-        // File paths.
-        string inDir = dataset.GetInputFilesDirectory(variable);
-
-        string outFile = pathManager.GetDatasetFileName(dataset, variable, PathType.Working);
-
-        // Sanitise - e.g. /tmp/./x -> /tmp/x
-        outFile = Path.GetFullPath(outFile);
-
-        List<string> requiredFiles = [
-            inDir,
-            outFile
-        ];
-        if (!string.IsNullOrEmpty(_config.GridFile))
-            requiredFiles.Add(_config.GridFile);
-        IEnumerable<PBSStorageDirective> storageDirectives =
-            PBSStorageHelper.GetStorageDirectives(requiredFiles);
-
-        // Create script directory if it doesn't already exist.
-        // This should be unnecessary at this point.
-        string jobName = GetJobName("mergetime", inputMetadata, dataset);
-        using IFileWriter writer = fileWriterFactory.Create(jobName);
-        await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
-
-        MergetimeOptions opts = new MergetimeOptions(
-            inDir,
-            outFile,
-            inputMetadata,
-            targetMetadata,
-            _config.InputTimeStep,
-            _config.OutputTimeStep,
-            variableManager.GetAggregationMethod(variable),
-            _config.GridFile,
-            remappingService.GetInterpolationAlgorithm(inputMetadata, variable),
-            false,
-            false,
-            dataset
-        );
-
-        await mergetimeGenerator.WriteMergetimeScriptAsync(writer, opts);
-        return writer.FilePath;
-    }
-
-    /// <summary>
     /// Generate a cleanup script for this job.
     /// </summary>
     /// <param name="dataset">The dataset to process.</param>
@@ -353,98 +276,6 @@ public class ScriptGenerator : IScriptGenerator
         await writer.WriteLineAsync("rm -rf \"${IN_DIR}\"");
 
         return writer.FilePath;
-    }
-
-    /// <summary>
-    /// Generate a rechunking script.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <param name="variable">The variable.</param>
-    /// <param name="inputFile">The path to the file emitted by the mergetime script.</param>
-    /// <remarks>
-    /// This is separate to the mergetime script, because it's more
-    /// resource-intensive. We can reduce costs by having the mergetime script
-    /// run on a low-memory node, but the rechunking script needs a high-memory
-    /// node.</remarks>
-    /// <returns>Path to the generated script file.</returns>
-    internal async Task<string> GenerateVariableRechunkScript(IClimateDataset dataset, ClimateVariable variable)
-    {
-        VariableInfo varInfo = dataset.GetVariableInfo(variable);
-
-        string jobName = GetJobName("rechunk", varInfo, dataset);
-        string inFile = pathManager.GetDatasetFileName(dataset, variable, PathType.Working);
-        string outFile = pathManager.GetDatasetFileName(dataset, variable, PathType.Output);
-        bool cleanup = !VpdCalculator.IsVpdDependency(variable);
-
-        return await GenerateRechunkScript(jobName, inFile, outFile, cleanup);
-    }
-
-    private async Task<string> GenerateRechunkScript(string jobName, string inFile, string outFile, bool cleanup)
-    {
-        using IFileWriter writer = fileWriterFactory.Create(jobName);
-        IEnumerable<PBSStorageDirective> storageDirectives =
-            PBSStorageHelper.GetStorageDirectives([inFile, outFile]);
-
-        await pbsHeavyweight.WritePBSHeader(writer, jobName, storageDirectives);
-
-        // File paths.
-        // The output of the mergetime script is the input file for this script.
-        await writer.WriteLineAsync($"IN_FILE=\"{inFile}\"");
-        await writer.WriteLineAsync($"OUT_FILE=\"{outFile}\"");
-        // Reorder dimensions, improve chunking, and enable compression.
-
-        // Note: we could use lon,lat,time but ncview works better if the
-        // x-dimension precedes the y-dimension.
-        string ordering = "-a lat,lon,time";
-        string chunking = $"--cnk_dmn lat,{_config.ChunkSizeSpatial} --cnk_dmn lon,{_config.ChunkSizeSpatial} --cnk_dmn time,{_config.ChunkSizeTime}";
-        string compression = _config.CompressOutput ? $"-L{_config.CompressionLevel}" : "";
-
-        await writer.WriteLineAsync("log \"Rechunking files...\"");
-        await writer.WriteLineAsync($"ncpdq -O {ordering} {chunking} {compression} \"${{IN_FILE}}\" \"${{OUT_FILE}}\"");
-        await writer.WriteLineAsync("log \"All files rechunked successfully.\"");
-        await writer.WriteLineAsync();
-
-        // Calculate checksum.
-        // Note: we change directory and use a relative file path, to ensure
-        // that the checksum file remains portable.
-
-        string outputPath = pathManager.GetBasePath(PathType.Output);
-        string checksumFile = pathManager.GetChecksumFilePath();
-        string relativePath = Path.GetRelativePath(outputPath, outFile);
-
-        await writer.WriteLineAsync("# Calculate checksum.");
-        await writer.WriteLineAsync($"log \"Calculating checksum...\"");
-        await writer.WriteLineAsync($"cd \"{outputPath}\"");
-        await writer.WriteLineAsync($"REL_PATH=\"{relativePath}\"");
-        await writer.WriteLineAsync($"sha512sum \"${{REL_PATH}}\" >>\"{checksumFile}\"");
-        await writer.WriteLineAsync("log \"Checksum calculation completed successfully.\"");
-        await writer.WriteLineAsync();
-
-        // We can now delete the temporary input file, but only if it's not also
-        // required for the VPD estimation, which may not have occurred yet.
-        if (cleanup)
-        {
-            await writer.WriteLineAsync("# Delete temporary file.");
-            await writer.WriteLineAsync($"rm -f \"${{IN_FILE}}\"");
-            await writer.WriteLineAsync();
-        }
-        else
-            await writer.WriteLineAsync("# Input file cannot (necessarily) be deleted yet, since it is required for VPD estimation.");
-
-        return writer.FilePath;
-    }
-
-    /// <summary>
-    /// Generate a script for rechunking VPD data.
-    /// </summary>
-    /// <param name="dataset">The dataset.</param>
-    /// <returns>The script path.</returns>
-    private async Task<string> GenerateVPDRechunkScript(IClimateDataset dataset, string inFile)
-    {
-        string jobName = $"rechunk_vpd_{dataset.DatasetName}";
-        string temperatureFile = pathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Output);
-        string outFile = VpdCalculator.GetVpdFilePath(dataset, temperatureFile);
-        return await GenerateRechunkScript(jobName, inFile, outFile, true);
     }
 
     /// <summary>

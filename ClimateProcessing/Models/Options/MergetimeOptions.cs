@@ -1,7 +1,6 @@
-using ClimateProcessing.Models;
 using ClimateProcessing.Units;
 
-namespace ClimateProcessing.Services;
+namespace ClimateProcessing.Models.Options;
 
 /// <summary>
 /// Options describing how files should be merged together along their time

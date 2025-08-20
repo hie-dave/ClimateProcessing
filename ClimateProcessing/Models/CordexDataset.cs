@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using ClimateProcessing.Models.Cordex;
+using ClimateProcessing.Services;
 
 namespace ClimateProcessing.Models;
 
@@ -331,5 +332,11 @@ public class CordexDataset : IClimateDataset
             CordexFrequency.Daily => (regexDay, formatDay),
             _ => throw new ArgumentException($"Unknown frequency: {frequency}")
         };
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context)
+    {
+        throw new NotImplementedException();
     }
 }

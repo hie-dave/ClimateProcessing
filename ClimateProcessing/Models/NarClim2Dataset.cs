@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using Microsoft.VisualBasic;
 using System.Globalization;
+using ClimateProcessing.Services;
+using ClimateProcessing.Services.Processors;
 
 namespace ClimateProcessing.Models;
 
@@ -123,7 +125,7 @@ public class NarClim2Dataset : IClimateDataset
 
     public IEnumerable<string> GetInputFiles(ClimateVariable variable)
     {
-        if ( (variable == ClimateVariable.MaxTemperature || variable == ClimateVariable.MinTemperature) && _frequency != NarClim2Frequency.Day)
+        if ((variable == ClimateVariable.MaxTemperature || variable == ClimateVariable.MinTemperature) && _frequency != NarClim2Frequency.Day)
             throw new ArgumentException($"Variable {variable} not supported with frequency {_frequency}");
 
         string dir = GetInputFilesDirectory(variable);
@@ -263,5 +265,16 @@ public class NarClim2Dataset : IClimateDataset
         string experiment = NarClim2Constants.ExperimentNames.ToString(_experiment);
         string rcm = NarClim2Constants.RCMNames.ToString(_rcm);
         return Path.Combine(gcm, experiment, rcm);
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context)
+    {
+        List<IVariableProcessor> processors = context.VariableManager
+            .GetRequiredVariables()
+            .Select(v => new StandardVariableProcessor(v))
+            .ToList<IVariableProcessor>();
+        processors.Add(new RechunkingProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));
+        return processors;
     }
 }

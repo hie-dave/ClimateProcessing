@@ -6,28 +6,22 @@
   the input variables
 - Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
 - Revise unit tests for vpd calculator. Should we test the generated equations?
+- Make CdoMergetimeScriptGenerator verbosity configurable
 
-### CDOCommandGenerator
-
-Handle CDO command generation
-
-- Methods like GenerateRenameOperator, GenerateUnitConversionOperators
-- CDO-specific constants and configurations
-- Unit test to ensure that operators all correctly written with hyphens
-  (previously, remapBil had hyphen but remapCon did not)
-- Make verbosity configurable
-
-### ScriptContentGenerator
+### ScriptContentGenerator (or NcoScriptGenerator)
 
 - Merge script content generation
 - Rechunk script content generation
 - Cleanup script content generation
 
-### Remapping Logic
-
-- Responsible for determining remapping, interpolation algorithm, etc
-
-### Job Orchestration
+### Job Orchestration (current ScriptGenerator)
 
 - Generate qsub commands
 - Manage PBS job dependencies
+- All other responsibilities offloaded to dedicated services
+
+### Ability to calculate/estimate some variables from others
+
+- Already do this for VPD (VpdCalculator)
+- Cordex dataset requires this for relative humidity
+- Some datasets may need to do this for temp from min/max temp

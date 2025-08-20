@@ -1,3 +1,5 @@
+using ClimateProcessing.Services;
+
 namespace ClimateProcessing.Models;
 
 public record VariableInfo(string Name, string Units);
@@ -45,4 +47,11 @@ public interface IClimateDataset
     /// </summary>
     /// <returns>The output directory.</returns>
     public string GetOutputDirectory();
+
+    /// <summary>
+    /// Get the variable processors for this dataset.
+    /// </summary>
+    /// <param name="context">The job creation context.</param>
+    /// <returns>The variable processors.</returns>
+    IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context);
 }

@@ -26,7 +26,7 @@ static async Task Process(ProcessingConfig config)
     config.Validate();
 
     // Generate scripts.
-    ScriptGenerator generator = new(config);
+    ScriptOrchestrator generator = new(config);
     List<string> scripts = new List<string>();
     foreach (IClimateDataset dataset in config.CreateDatasets())
     {
@@ -34,7 +34,7 @@ static async Task Process(ProcessingConfig config)
         scripts.Add(submissionScript);
     }
 
-    string wrapper = await ScriptGenerator.GenerateWrapperScript(config.OutputDirectory, scripts);
+    string wrapper = await ScriptOrchestrator.GenerateWrapperScript(config.OutputDirectory, scripts);
     Console.WriteLine($"Processing scripts have been generated in:");
     Console.WriteLine($"{Path.GetDirectoryName(config.OutputDirectory)}");
     Console.WriteLine("\nTo submit the jobs to PBS, run:");

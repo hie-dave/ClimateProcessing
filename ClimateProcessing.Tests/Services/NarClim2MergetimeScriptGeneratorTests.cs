@@ -156,7 +156,7 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
         PathManager pathManager = new(outputDirectory.AbsolutePath);
         FileWriterFactory factory = new(pathManager);
 
-        ScriptGenerator generator = new ScriptGenerator(config, pathManager, factory, this.generator, new RemappingService());
+        ClimateProcessing.Services.ScriptOrchestrator generator = new ScriptGenerator(config, pathManager, factory, this.generator, new RemappingService());
         string script = await generator.GenerateScriptsAsync(dataset);
         Assert.NotNull(script);
 

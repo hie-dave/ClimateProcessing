@@ -16,7 +16,7 @@ using ClimateProcessing.Tests.Helpers;
 
 namespace ClimateProcessing.Tests.Services;
 
-public class ScriptGeneratorTests : IDisposable
+public class ScriptOrchestratorTests : IDisposable
 {
     private const string outputDirectoryPrefix = "script_generator_tests_output";
     private readonly ITestOutputHelper outputHelper;
@@ -56,7 +56,7 @@ public class ScriptGeneratorTests : IDisposable
 
     private readonly NarClim2Config _config;
 
-    private readonly ScriptGenerator _generator;
+    private readonly ScriptOrchestrator _generator;
 
     public ScriptGeneratorTests(ITestOutputHelper outputHelper)
     {
@@ -75,7 +75,7 @@ public class ScriptGeneratorTests : IDisposable
             OutputTimeStepHours = 24
         };
 
-        _generator = new ScriptGenerator(_config);
+        _generator = new ScriptOrchestrator(_config);
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public class ScriptGeneratorTests : IDisposable
             InputTimeStepHours = 3,
             OutputTimeStepHours = 24,
         };
-        ScriptGenerator generator = new(config);
+        ScriptOrchestrator generator = new(config);
         StaticMockDataset dataset = new(inputDir);
 
         string scriptPath = await generator.GenerateVariableMergetimeScript(
@@ -162,7 +162,7 @@ public class ScriptGeneratorTests : IDisposable
             OutputTimeStepHours = outputTimestepHours,
             Version = ModelVersion.Dave
         };
-        ScriptGenerator generator = new(config);
+        ScriptOrchestrator generator = new(config);
         StaticMockDataset dataset = new("/input", varName, inputUnits);
 
         string scriptPath = await generator.GenerateVariableMergetimeScript(
@@ -240,7 +240,7 @@ public class ScriptGeneratorTests : IDisposable
         string expectedOutputName,
         string inputUnits)
     {
-        ScriptGenerator generator = new(_config);
+        ScriptOrchestrator generator = new(_config);
         StaticMockDataset dataset = new("/input", inputName, inputUnits);
 
         string scriptPath = await generator.GenerateVariableMergetimeScript(
@@ -270,7 +270,7 @@ public class ScriptGeneratorTests : IDisposable
             InputTimeStepHours = 1,
             OutputTimeStepHours = 1
         };
-        ScriptGenerator generator = new(config);
+        ScriptOrchestrator generator = new(config);
         DynamicMockDataset dataset = new(config.InputDirectory, config.OutputDirectory);
 
         string scriptPath = await generator.GenerateScriptsAsync(dataset);
@@ -305,7 +305,7 @@ public class ScriptGeneratorTests : IDisposable
     [Fact]
     public async Task GenerateVariableMergeScript_ThrowsForInvalidVariable()
     {
-        ScriptGenerator generator = new ScriptGenerator(_config);
+        ScriptOrchestrator generator = new ScriptOrchestrator(_config);
         ClimateVariable variable = (ClimateVariable)666;
         Mock<IClimateDataset> mockDataset = new();
         mockDataset.Setup(d => d.GetVariableInfo(variable)).Returns(new VariableInfo("x", "y"));
@@ -326,7 +326,7 @@ public class ScriptGeneratorTests : IDisposable
         StaticMockDataset dataset = new("/input");
         _config.CompressOutput = compressionEnabled;
         _config.CompressionLevel = compressionLevel;
-        ScriptGenerator generator = new ScriptGenerator(_config);
+        ScriptOrchestrator generator = new ScriptOrchestrator(_config);
         string scriptPath = await generator.GenerateVariableRechunkScript(dataset, ClimateVariable.Temperature);
         string[] scriptLines = await File.ReadAllLinesAsync(scriptPath);
         IEnumerable<string> ncpdqLines = scriptLines.Where(l => l.Contains("ncpdq"));
@@ -342,7 +342,7 @@ public class ScriptGeneratorTests : IDisposable
     {
         string script = Path.GetTempFileName();
         await File.WriteAllLinesAsync(script, ["#!/usr/bin/bash", "echo x"]);
-        string wrapper = await ScriptGenerator.GenerateWrapperScript(outputDirectory, [script]);
+        string wrapper = await ScriptOrchestrator.GenerateWrapperScript(outputDirectory, [script]);
         string output = await File.ReadAllTextAsync(wrapper);
 
         // The wrapper script should call each subscript passed into it.
@@ -354,7 +354,7 @@ public class ScriptGeneratorTests : IDisposable
     {
         PathManager pathManager = new(_config.OutputDirectory);
         TrackingFileWriterFactory factory = new(_config.OutputDirectory);
-        ScriptGenerator generator = new(_config, pathManager, factory, new CdoMergetimeScriptGenerator(), new RemappingService());
+        ScriptOrchestrator generator = new(_config, pathManager, factory, new CdoMergetimeScriptGenerator(), new RemappingService());
         _config.InputDirectory = "/input";
         DynamicMockDataset dataset = new(_config.InputDirectory, _config.OutputDirectory);
 
@@ -402,7 +402,7 @@ public class ScriptGeneratorTests : IDisposable
             VPDMethod = VPDMethod.AlduchovEskridge1996,
             EmailNotifications = EmailNotificationType.After | EmailNotificationType.Before | EmailNotificationType.Aborted
         };
-        ScriptGenerator generator = new(config);
+        ScriptOrchestrator generator = new(config);
 
         // Act.
         await generator.GenerateScriptsAsync(dataset);

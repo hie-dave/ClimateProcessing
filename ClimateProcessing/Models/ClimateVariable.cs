@@ -9,5 +9,6 @@ public enum ClimateVariable
     WindSpeed,         // sfcWind, m s-1
     Temperature,       // tas, degC
     MaxTemperature,    // tasmax, degC
-    MinTemperature     // tasmin, degC
+    MinTemperature,    // tasmin, degC
+    Vpd                // vpd, kPa
 }
