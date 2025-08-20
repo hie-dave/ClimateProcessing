@@ -1,7 +1,7 @@
 using ClimateProcessing.Extensions;
 using ClimateProcessing.Models;
 
-namespace ClimateProcessing.Services;
+namespace ClimateProcessing.Services.Processors;
 
 /// <summary>
 /// Calculates VPD (Vapor Pressure Deficit) for a given dataset.

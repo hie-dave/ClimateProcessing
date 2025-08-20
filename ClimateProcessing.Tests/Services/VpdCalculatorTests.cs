@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using ClimateProcessing.Configuration;
 using ClimateProcessing.Models;
 using ClimateProcessing.Services;
+using ClimateProcessing.Services.Processors;
 using ClimateProcessing.Tests.Helpers;
 using ClimateProcessing.Tests.Mocks;
 using Moq;

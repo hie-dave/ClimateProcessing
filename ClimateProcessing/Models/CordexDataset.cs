@@ -1,8 +1,10 @@
 
 using System.Globalization;
 using System.Text.RegularExpressions;
+using ClimateProcessing.Extensions;
 using ClimateProcessing.Models.Cordex;
 using ClimateProcessing.Services;
+using ClimateProcessing.Services.Processors;
 
 namespace ClimateProcessing.Models;
 
@@ -105,7 +107,8 @@ public class CordexDataset : IClimateDataset
         { ClimateVariable.MinTemperature, ("tasmin", "degC") },
 
         // Dataset contains min and max relative humidity only.
-        // { ClimateVariable.RelativeHumidity, ("hursmax", "1") }, // todo: check units
+        { ClimateVariable.MinRelativeHumidity, ("hursmin", "%") },
+        { ClimateVariable.MaxRelativeHumidity, ("hursmax", "%") },
     };
 
     /// <summary>
@@ -337,6 +340,46 @@ public class CordexDataset : IClimateDataset
     /// <inheritdoc />
     public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context)
     {
-        throw new NotImplementedException();
+        if (context.Config.Version == ModelVersion.Dave)
+            throw new NotSupportedException($"Dataset {DatasetName} is not supported in version {context.Config.Version}");
+
+        // Calculate temperature from min and max.
+        IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
+        string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature, PathType.Working);
+        MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
+
+        // Calculate relative humidity from min and max.
+        MeanProcessor relhumCalculator = new MeanProcessor(
+            GenerateFileName(context, ClimateVariable.RelativeHumidity, ClimateVariable.MinRelativeHumidity, PathType.Working),
+            ClimateVariable.RelativeHumidity,
+            [ClimateVariable.MinRelativeHumidity, ClimateVariable.MaxRelativeHumidity]);
+
+        return [
+            new StandardVariableProcessor(ClimateVariable.Precipitation),
+            new StandardVariableProcessor(ClimateVariable.ShortwaveRadiation),
+            new StandardVariableProcessor(ClimateVariable.WindSpeed),
+            new StandardVariableProcessor(ClimateVariable.MinTemperature),
+            new StandardVariableProcessor(ClimateVariable.MaxTemperature),
+            new RechunkProcessorDecorator(tempCalculator),
+            new StandardVariableProcessor(ClimateVariable.MinRelativeHumidity),
+            new StandardVariableProcessor(ClimateVariable.MaxRelativeHumidity),
+            new RechunkProcessorDecorator(relhumCalculator),
+            // air pressure not needed (as we have rel. humidity)
+            // specific humidity not needed (as we have rel. humidity)
+        ];
+    }
+
+    private string GenerateFileName(
+        IJobCreationContext context,
+        ClimateVariable variable,
+        ClimateVariable dependency,
+        PathType pathType)
+    {
+        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType);
+        template = Path.GetFileName(template);
+
+        string varName = context.VariableManager.GetOutputRequirements(variable).Name;
+        string depName = context.VariableManager.GetOutputRequirements(dependency).Name;
+        return template.ReplaceFirst($"{depName}_", $"{varName}_");
     }
 }
