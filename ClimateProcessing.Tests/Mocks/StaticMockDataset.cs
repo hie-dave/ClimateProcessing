@@ -1,4 +1,5 @@
 using ClimateProcessing.Models;
+using ClimateProcessing.Services;
 
 namespace ClimateProcessing.Tests.Mocks;
 
@@ -37,4 +38,6 @@ internal class StaticMockDataset : IClimateDataset
 
     public string GenerateOutputFileName(ClimateVariable variable)
         => "output.nc";
+
+    public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context) => [];
 }

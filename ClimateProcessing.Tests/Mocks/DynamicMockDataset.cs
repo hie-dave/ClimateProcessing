@@ -1,4 +1,5 @@
 using ClimateProcessing.Models;
+using ClimateProcessing.Services;
 
 namespace ClimateProcessing.Tests.Mocks;
 
@@ -10,6 +11,7 @@ internal class DynamicMockDataset : IClimateDataset
 {
     private readonly string inputPath;
     private readonly string outputPath;
+    private List<IVariableProcessor> processors = [];
     private readonly Dictionary<ClimateVariable, (string Name, string Units)> _variableInfo = new()
     {
         [ClimateVariable.Temperature] = ("tas", "K"),
@@ -19,7 +21,8 @@ internal class DynamicMockDataset : IClimateDataset
         [ClimateVariable.ShortwaveRadiation] = ("rsds", "W m-2"),
         [ClimateVariable.WindSpeed] = ("sfcWind", "m s-1"),
         [ClimateVariable.MaxTemperature] = ("tasmax", "K"),
-        [ClimateVariable.MinTemperature] = ("tasmin", "K")
+        [ClimateVariable.MinTemperature] = ("tasmin", "K"),
+        [ClimateVariable.Vpd] = ("vpd", "kPa")
     };
 
     public string DatasetName => GetType().Name;
@@ -59,4 +62,7 @@ internal class DynamicMockDataset : IClimateDataset
         $"{_variableInfo[variable].Name}_output.nc";
 
     public string GetOutputDirectory() => "dynamic_mock";
+
+    public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context) => processors;
+    public void SetProcessors(IEnumerable<IVariableProcessor> processors) => this.processors = processors.ToList();
 }

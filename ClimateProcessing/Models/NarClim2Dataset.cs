@@ -272,9 +272,9 @@ public class NarClim2Dataset : IClimateDataset
     {
         List<IVariableProcessor> processors = context.VariableManager
             .GetRequiredVariables()
-            .Select(v => new StandardVariableProcessor(v))
+            .Select(v => new StandardVariableProcessor(v, new NarClim2MergetimeScriptGenerator(), new NcoRechunkScriptGenerator()))
             .ToList<IVariableProcessor>();
-        processors.Add(new RechunkingProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));
+        processors.Add(new RechunkProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));
         return processors;
     }
 }

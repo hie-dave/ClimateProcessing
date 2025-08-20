@@ -23,7 +23,16 @@ public class VpdCalculator : IVariableProcessor
     private readonly VPDMethod method;
 
     /// <inheritdoc/>
+    public string Name => "Estimate VPD";
+
+    /// <inheritdoc/>
     public ClimateVariable TargetVariable => ClimateVariable.Vpd;
+
+    /// <inheritdoc/>
+    public ClimateVariableFormat OutputFormat => ClimateVariableFormat.Timeseries(TargetVariable);
+
+    /// <inheritdoc/>
+    public IEnumerable<ClimateVariableFormat> IntermediateOutputs => [];
 
     /// <inheritdoc/>
     public IReadOnlySet<ClimateVariableFormat> Dependencies => dependencies;

@@ -9,6 +9,7 @@ using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
 using Xunit.Abstractions;
 using ClimateProcessing.Units;
 using ClimateProcessing.Tests.Helpers;
+using ClimateProcessing.Models.Options;
 
 namespace ClimateProcessing.Tests.Services;
 
@@ -156,7 +157,7 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
         PathManager pathManager = new(outputDirectory.AbsolutePath);
         FileWriterFactory factory = new(pathManager);
 
-        ClimateProcessing.Services.ScriptOrchestrator generator = new ScriptGenerator(config, pathManager, factory, this.generator, new RemappingService());
+        ScriptOrchestrator generator = new ScriptOrchestrator(config, pathManager, factory, new RemappingService());
         string script = await generator.GenerateScriptsAsync(dataset);
         Assert.NotNull(script);
 

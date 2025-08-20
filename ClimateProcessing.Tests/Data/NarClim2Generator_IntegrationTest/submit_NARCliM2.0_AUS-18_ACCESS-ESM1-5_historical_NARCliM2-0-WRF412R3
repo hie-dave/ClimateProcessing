@@ -8,36 +8,98 @@ set -euo pipefail
 
 mkdir -p "@#OUTPUT_DIRECTORY#@"
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-VPD_DEPS="${JOB_ID}"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${JOB_ID}"
+# Dictionary to track job IDs
+declare -A JOB_IDS
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+# List to track all job IDs for cleanup dependency
+ALL_JOBS=""
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-VPD_DEPS="${VPD_DEPS}:${JOB_ID}"
+# Function to submit a job
+submit_job() {
+    local job_name="${1}"
+    local script_path="${2}"
+    shift 2
+    local dependency_jobs=("$@")
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-VPD_DEPS="${VPD_DEPS}:${JOB_ID}"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+    # Build dependency string if we have dependencies
+    local deps=""
+    if [ ${#dependency_jobs[@]} -gt 0 ]; then
+        for dep_job in "${dependency_jobs[@]}"; do
+            if [ -z "${dep_job}" ]; then
+                continue
+            fi
+            if [ -z "${deps}" ]; then
+                deps="${JOB_IDS[${dep_job}]}"
+            else
+                deps="${deps}:${JOB_IDS[${dep_job}]}"
+            fi
+        done
+    fi
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+    if [ -z "${deps}" ]; then
+        # No dependencies
+        JOB_ID="$(qsub "${script_path}")"
+    else
+        # With dependencies
+        JOB_ID="$(qsub -W depend=afterok:"${deps}" "${script_path}")"
+    fi
 
-JOB_ID="$(qsub "@#OUTPUT_DIRECTORY#@/scripts/mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+    # Store the job ID
+    JOB_IDS["${job_name}"]="${JOB_ID}"
 
-JOB_ID="$(qsub -W depend=afterok:"${VPD_DEPS}" "@#OUTPUT_DIRECTORY#@/scripts/calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-JOB_ID="$(qsub -W depend=afterok:"${JOB_ID}" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
-ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+    # Add to all jobs list
+    if [ -z "${ALL_JOBS}" ]; then
+        ALL_JOBS="${JOB_ID}"
+    else
+        ALL_JOBS="${ALL_JOBS}:${JOB_ID}"
+    fi
 
+    echo "Submitted job ${job_name}: ${JOB_ID}"
+}
+
+# Submit job: mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "mergetime_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit job: rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3
+submit_job "rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "@#OUTPUT_DIRECTORY#@/scripts/rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3" "calc_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
+
+# Submit cleanup script
 JOB_ID="$(qsub -W depend=afterok:"${ALL_JOBS}" "@#OUTPUT_DIRECTORY#@/scripts/cleanup_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3")"
 
-echo "Job submission complete for dataset NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3. Job ID: ${JOB_ID}"
-
+echo "Job submission complete for dataset NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3. Final job ID: ${JOB_ID}"

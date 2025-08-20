@@ -23,14 +23,19 @@ public class StandardVariableProcessor : IVariableProcessor
     /// </summary>
     private readonly IRechunkScriptGenerator rechunkGenerator;
 
-    /// <summary>
-    /// The target variable.
-    /// </summary>
+    /// <inheritdoc />
+    public string Name => $"{TargetVariable}: mergetime => rechunk";
+
+    /// <inheritdoc />
     public ClimateVariable TargetVariable { get; private init; }
 
-    /// <summary>
-    /// The dependencies of the target variable.
-    /// </summary>
+    /// <inheritdoc />
+    public ClimateVariableFormat OutputFormat => ClimateVariableFormat.Rechunked(TargetVariable);
+
+    /// <inheritdoc />
+    public IEnumerable<ClimateVariableFormat> IntermediateOutputs => [ClimateVariableFormat.Timeseries(TargetVariable)];
+
+    /// <inheritdoc />
     public IReadOnlySet<ClimateVariableFormat> Dependencies => new HashSet<ClimateVariableFormat>();
 
     /// <summary>
@@ -85,6 +90,11 @@ public class StandardVariableProcessor : IVariableProcessor
         // File paths.
         string inDir = dataset.GetInputFilesDirectory(TargetVariable);
 
+        // TODO: this will generate an output file name which uses the name of
+        // the variable from the input dataset. This will be incorrect if the
+        // user wants to rename the variable (the output file name will contain
+        // the original variable name). It's not a huge problem but would be
+        // better to fix.
         string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working);
 
         // Sanitise - e.g. /tmp/./x -> /tmp/x

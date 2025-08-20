@@ -6,7 +6,7 @@ namespace ClimateProcessing.Services.Processors;
 /// <summary>
 /// Processor which wraps an internal processing step and rechunks the output.
 /// </summary>
-public class RechunkingProcessorDecorator : IVariableProcessor
+public class RechunkProcessorDecorator : IVariableProcessor
 {
     /// <summary>
     /// The inner processor.
@@ -22,7 +22,7 @@ public class RechunkingProcessorDecorator : IVariableProcessor
     /// Creates a new rechunking processor decorator, using the standard rechunk script generator.
     /// </summary>
     /// <param name="innerProcessor">The inner processor.</param>
-    public RechunkingProcessorDecorator(IVariableProcessor innerProcessor)
+    public RechunkProcessorDecorator(IVariableProcessor innerProcessor)
         : this(innerProcessor, new NcoRechunkScriptGenerator()) { }
 
     /// <summary>
@@ -30,7 +30,7 @@ public class RechunkingProcessorDecorator : IVariableProcessor
     /// </summary>
     /// <param name="innerProcessor">The inner processor.</param>
     /// <param name="rechunkGenerator">The rechunk script generator.</param>
-    public RechunkingProcessorDecorator(
+    public RechunkProcessorDecorator(
         IVariableProcessor innerProcessor,
         IRechunkScriptGenerator rechunkGenerator)
     {
@@ -39,16 +39,19 @@ public class RechunkingProcessorDecorator : IVariableProcessor
     }
 
     /// <inheritdoc/>
+    public string Name => $"{innerProcessor.Name} => rechunk";
+
+    /// <inheritdoc/>
     public ClimateVariable TargetVariable => innerProcessor.TargetVariable;
 
     /// <inheritdoc/>
+    public ClimateVariableFormat OutputFormat => ClimateVariableFormat.Rechunked(TargetVariable);
+
+    /// <inheritdoc/>
+    public IEnumerable<ClimateVariableFormat> IntermediateOutputs => [..innerProcessor.IntermediateOutputs, innerProcessor.OutputFormat];
+
+    /// <inheritdoc/>
     public IReadOnlySet<ClimateVariableFormat> Dependencies => innerProcessor.Dependencies;
-
-    /// <inheritdoc/>
-    ClimateVariable IVariableProcessor.TargetVariable => throw new NotImplementedException();
-
-    /// <inheritdoc/>
-    IReadOnlySet<ClimateVariableFormat> IVariableProcessor.Dependencies => throw new NotImplementedException();
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<Job>> CreateJobsAsync(
@@ -81,9 +84,16 @@ public class RechunkingProcessorDecorator : IVariableProcessor
     {
         // TODO: reuse code from StandardVariableProcessor
         // (e.g. GetJobName())
-        string jobName = $"rechunk_{TargetVariable}_{dataset.DatasetName}";
+        // please fixme: tolower is horrible here
+        string jobName = $"rechunk_{TargetVariable.ToString().ToLower()}_{dataset.DatasetName}";
         string inFile = sourceJob.OutputPath;
-        string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Output);
+
+        // Output file path can use the same name as the output file from the
+        // wrapped job, which will have more context to choose a useful name.
+        string outputDirectory = context.PathManager.GetDatasetPath(dataset, PathType.Output);
+        string fileName = Path.GetFileName(sourceJob.OutputPath);
+        string outFile = Path.Combine(outputDirectory, fileName);
+
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([inFile, outFile]);

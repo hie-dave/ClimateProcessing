@@ -4,6 +4,7 @@ using ClimateProcessing.Models;
 using ClimateProcessing.Services;
 using ClimateProcessing.Tests.Helpers;
 using ClimateProcessing.Tests.Mocks;
+using Moq;
 using Xunit;
 
 using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
@@ -14,8 +15,11 @@ public sealed class VpdCalculatorTests : IDisposable
 {
     private readonly TempDirectory outputDirectory;
     private readonly PathManager pathManager;
-    private readonly IFileWriterFactory factory;
+    private readonly InMemoryScriptWriterFactory factory;
     private readonly PBSWriter pbsWriter;
+
+    // Job creation context initialised to return the above objects.
+    private readonly Mock<IJobCreationContext> mockContext;
 
     public VpdCalculatorTests()
     {
@@ -28,6 +32,13 @@ public sealed class VpdCalculatorTests : IDisposable
         EmailNotificationType email = EmailNotificationType.None;
         PBSConfig config = new("testq", 1, 1, 1, "", walltime, email, "");
         pbsWriter = new PBSWriter(config, pathManager);
+
+        mockContext = new Mock<IJobCreationContext>();
+        mockContext.Setup(x => x.DependencyResolver).Returns(new DependencyResolver());
+        mockContext.Setup(x => x.PathManager).Returns(pathManager);
+        mockContext.Setup(x => x.PBSLightweight).Returns(pbsWriter);
+        mockContext.Setup(x => x.VariableManager).Returns(new ClimateVariableManager(ModelVersion.Dave));
+        mockContext.Setup(x => x.FileWriterFactory).Returns(factory);
     }
 
     public void Dispose()
@@ -45,12 +56,23 @@ public sealed class VpdCalculatorTests : IDisposable
     {
         StaticMockDataset dataset = new("/input");
 
-        FileWriterFactory factory = new FileWriterFactory(pathManager);
-        VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
-        string scriptPath = await calculator.GenerateVPDScript(dataset, pbsWriter);
+        Job temperatureJob = new Job("temperature", "tas", ClimateVariableFormat.Timeseries(ClimateVariable.Temperature), "tas.nc", Array.Empty<Job>());
+        Job specificHumidityJob = new Job("specificHumidity", "huss", ClimateVariableFormat.Timeseries(ClimateVariable.SpecificHumidity), "huss.nc", Array.Empty<Job>());
+        Job surfacePressureJob = new Job("surfacePressure", "ps", ClimateVariableFormat.Timeseries(ClimateVariable.SurfacePressure), "ps.nc", Array.Empty<Job>());
 
-        Assert.True(File.Exists(scriptPath));
-        string scriptContent = await File.ReadAllTextAsync(scriptPath);
+        DependencyResolver resolver = new DependencyResolver();
+        mockContext.Setup(x => x.DependencyResolver).Returns(resolver);
+        resolver.AddJobs([
+            temperatureJob,
+            specificHumidityJob,
+            surfacePressureJob
+        ]);
+
+        VpdCalculator calculator = new VpdCalculator(method);
+        IReadOnlyList<Job> jobs = await calculator.CreateJobsAsync(dataset, mockContext.Object);
+
+        Job job = Assert.Single(jobs);
+        string scriptContent = factory.Read($"calc_vpd_{dataset.DatasetName}");
         AssertScriptValid(scriptContent);
     }
 
@@ -67,8 +89,8 @@ public sealed class VpdCalculatorTests : IDisposable
         dataset.SetVariableInfo(ClimateVariable.SpecificHumidity, huss, "kg kg-1");
         dataset.SetVariableInfo(ClimateVariable.SurfacePressure, ps, "Pa");
 
-        InMemoryScriptWriter writer = new InMemoryScriptWriter();
-        VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
+        using InMemoryScriptWriter writer = new InMemoryScriptWriter();
+        VpdCalculator calculator = new VpdCalculator(method);
 
         await calculator.WriteVPDEquationsAsync(writer, dataset);
         string equationContent = writer.GetContent();
@@ -98,8 +120,8 @@ public sealed class VpdCalculatorTests : IDisposable
         dataset.SetVariableInfo(ClimateVariable.SpecificHumidity, "huss", "kg kg-1");
         dataset.SetVariableInfo(ClimateVariable.SurfacePressure, "ps", "Pa");
 
-        InMemoryScriptWriter writer = new InMemoryScriptWriter();
-        VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
+        using InMemoryScriptWriter writer = new InMemoryScriptWriter();
+        VpdCalculator calculator = new VpdCalculator(method);
 
         await calculator.WriteVPDEquationsAsync(writer, dataset);
         string equationContent = writer.GetContent();
@@ -119,11 +141,11 @@ public sealed class VpdCalculatorTests : IDisposable
     [Fact]
     public async Task WriteVPDEquationsAsync_ThrowsForInvalidMethod()
     {
-        InMemoryScriptWriter writer = new InMemoryScriptWriter();
+        using InMemoryScriptWriter writer = new InMemoryScriptWriter();
         StaticMockDataset dataset = new StaticMockDataset("x");
 
         VPDMethod method = (VPDMethod)666;
-        VpdCalculator calculator = new VpdCalculator(method, pathManager, factory);
+        VpdCalculator calculator = new VpdCalculator(method);
         ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () => await calculator.WriteVPDEquationsAsync(writer, dataset));
         Assert.Contains("method", exception.Message);
     }

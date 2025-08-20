@@ -40,6 +40,7 @@ public class TrackingFileWriterFactory : IFileWriterFactory
     private readonly string outputDirectory;
 
     public IReadOnlyCollection<string> ActiveWriters => activeWriters;
+    public int TotalWritersCreated { get; private set; }
 
     public TrackingFileWriterFactory(string outputDirectory)
     {
@@ -50,6 +51,7 @@ public class TrackingFileWriterFactory : IFileWriterFactory
     {
         string path = Path.Combine(outputDirectory, name);
         activeWriters.Add(path);
+        TotalWritersCreated++;
 
         ScriptWriter writer = new(path);
         return new DisposableWrapper(writer, () => activeWriters.Remove(path));

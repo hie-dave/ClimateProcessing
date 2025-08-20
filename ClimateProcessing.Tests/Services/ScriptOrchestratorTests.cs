@@ -13,6 +13,7 @@ using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
 using Moq;
 using ClimateProcessing.Tests.Helpers;
+using ClimateProcessing.Services.Processors;
 
 namespace ClimateProcessing.Tests.Services;
 
@@ -21,44 +22,11 @@ public class ScriptOrchestratorTests : IDisposable
     private const string outputDirectoryPrefix = "script_generator_tests_output";
     private readonly ITestOutputHelper outputHelper;
     private readonly string outputDirectory;
-    private static readonly string[] cdoTemporalAggregationOperators = [
-        "daymin",
-        "daymax",
-        "daysum",
-        "daymean",
-        "dayrange",
-        "dayavg",
-        "daystd",
-        "daystd1",
-        "dayvar",
-        "dayvar1",
-        "timselmin",
-        "timselmax",
-        "timselsum",
-        "timselmean",
-        "timselrange",
-        "timselavg",
-        "timselstd",
-        "timselstd1",
-        "timselvar",
-        "timselvar1"
-    ];
-
-    private static readonly string[] cdoArithmeticOperators = [
-        "addc",
-        "subc",
-        "mulc",
-        "divc",
-        "minc",
-        "maxc",
-        "expr",
-    ];
-
     private readonly NarClim2Config _config;
 
     private readonly ScriptOrchestrator _generator;
 
-    public ScriptGeneratorTests(ITestOutputHelper outputHelper)
+    public ScriptOrchestratorTests(ITestOutputHelper outputHelper)
     {
         this.outputHelper = outputHelper;
         outputDirectory = CreateOutputDirectory();
@@ -100,158 +68,6 @@ public class ScriptOrchestratorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("input dir with spaces")]
-    [InlineData("/path/with/special/$chars")]
-    [InlineData("/normal/path")]
-    public async Task GenerateVariableMergeScript_QuotesVariablesSafely(
-        string inputDir)
-    {
-        NarClim2Config config = new()
-        {
-            Project = "test",
-            Queue = "normal",
-            Walltime = "01:00:00",
-            Ncpus = 1,
-            Memory = 4,
-            OutputDirectory = outputDirectory,
-            InputDirectory = inputDir,
-            InputTimeStepHours = 3,
-            OutputTimeStepHours = 24,
-        };
-        ScriptOrchestrator generator = new(config);
-        StaticMockDataset dataset = new(inputDir);
-
-        string scriptPath = await generator.GenerateVariableMergetimeScript(
-            dataset,
-            ClimateVariable.Temperature);
-        string scriptContent = await File.ReadAllTextAsync(scriptPath);
-
-        // No unquoted variable references
-        AssertScriptValid(scriptContent);
-    }
-
-    [Theory]
-    [InlineData(ClimateVariable.Temperature, 1, 24, "tas", "K", "-daymean,24", "-subc,273.15", "-setattribute,'tas@units=degC")]
-    [InlineData(ClimateVariable.Precipitation, 1, 24, "pr", "kg m-2 s-1", "-daysum,24", "-mulc,3600", "-setattribute,'pr@units=mm'")]
-    [InlineData(ClimateVariable.Precipitation, 1, 8, "pr", "kg m-2 s-1", "-timselsum,8", "-mulc,3600", "-setattribute,'pr@units=mm'")]
-    [InlineData(ClimateVariable.SpecificHumidity, 1, 1, "huss", "1")] // No unit conversion or aggregation
-    [InlineData(ClimateVariable.SpecificHumidity, 1, 1, "huss", "kg/kg", null, null, "-setattribute,'huss@units=1'")] // Unit rename, but no unit conversion or aggregation
-    [InlineData(ClimateVariable.ShortwaveRadiation, 1, 3, "rsds", "W m-2", "-timselmean,3")] // Aggregation but no unit conversion (intensive variable)
-    [InlineData(ClimateVariable.Precipitation, 1, 12, "pr", "mm", "-timselsum,12")] // Aggregation but no unit conversion (extensive variable)
-    [InlineData(ClimateVariable.SurfacePressure, 1, 1, "ps", "kPa", null, "-mulc,1000", "-setattribute,'ps@units=Pa'")] // Unit conversion but no aggregation
-    public async Task GenerateVariableMergeScript_GeneratesValidCDORemapCommand(
-        ClimateVariable variable,
-        int inputTimestepHours,
-        int outputTimestepHours,
-        string varName,
-        string inputUnits,
-        string? temporalAggregationOperator = null,
-        string? unitConversionOperator = null,
-        string? unitRenameOperator = null)
-    {
-        NarClim2Config config = new()
-        {
-            Project = "test",
-            Queue = "normal",
-            Walltime = "01:00:00",
-            Ncpus = 1,
-            Memory = 4,
-            OutputDirectory = outputDirectory,
-            InputDirectory = "/input",
-            InputTimeStepHours = inputTimestepHours,
-            OutputTimeStepHours = outputTimestepHours,
-            Version = ModelVersion.Dave
-        };
-        ScriptOrchestrator generator = new(config);
-        StaticMockDataset dataset = new("/input", varName, inputUnits);
-
-        string scriptPath = await generator.GenerateVariableMergetimeScript(
-            dataset,
-            variable);
-        string scriptContent = await File.ReadAllTextAsync(scriptPath);
-
-        // E.g.
-        // cdo -L -O -v -z zip1 -daymean,24 -subc,273.15 -setattribute,'tas@units=degC' -unpack  \"${FILE}\" \"${REMAP_DIR}/$(basename \"${FILE}\")\"
-        // "    cdo -L -O -v -z zip1 -daysum,24 -mulc,3600 -setattribute,'pr@units=mm' -unpack  \"${FILE}\" \"${REMAP_DIR}/$(basename \"${FILE}\")\""
-        string line = scriptContent.Split("\n").First(l => l.Contains("cdo -"));
-
-        // CDO command should have proper structure
-
-        // Should use -L for thread-safety.
-        Assert.Contains("-L", line);
-
-        // Should use -v for progress tracking.
-        Assert.Contains("-v", line);
-
-        // Should use -O to overwrite any existing output file.
-        Assert.Contains("-O", line);
-
-        // Should use -z zip1 for efficiency.
-        Assert.Contains("-z zip1", line);
-
-        // Should unpack data.
-        Assert.Contains("-unpack", line);
-
-        // Should apply operators (or not).
-        int previousOperatorIndex = -1;
-        if (temporalAggregationOperator is null)
-            foreach (string @operator in cdoTemporalAggregationOperators)
-                Assert.DoesNotContain(@operator, line);
-        else
-        {
-            Assert.Contains(temporalAggregationOperator, line);
-            int operatorIndex = line.IndexOf(temporalAggregationOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{temporalAggregationOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
-
-        if (unitConversionOperator is null)
-            foreach (string @operator in cdoArithmeticOperators)
-                Assert.DoesNotContain(@operator, line);
-        else
-        {
-            Assert.Contains(unitConversionOperator, line);
-            int operatorIndex = line.IndexOf(unitConversionOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{unitConversionOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
-
-        if (unitRenameOperator is null)
-            Assert.DoesNotContain("setattribute", line);
-        else
-        {
-            Assert.Contains(unitRenameOperator, line);
-            int operatorIndex = line.IndexOf(unitRenameOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{unitRenameOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
-
-        // TODO: assert that no additional arguments are present.
-
-        // Rest of script should be valid.
-        AssertScriptValid(scriptContent);
-    }
-
-    [Theory]
-    [InlineData(ClimateVariable.Precipitation, "precip", "pr", "mm")]
-    public async Task GenerateVariableMergeScript_GeneratesValidRenameCommand(
-        ClimateVariable variable,
-        string inputName,
-        string expectedOutputName,
-        string inputUnits)
-    {
-        ScriptOrchestrator generator = new(_config);
-        StaticMockDataset dataset = new("/input", inputName, inputUnits);
-
-        string scriptPath = await generator.GenerateVariableMergetimeScript(
-            dataset,
-            variable);
-        string scriptContent = await File.ReadAllTextAsync(scriptPath);
-
-        Assert.Contains($"-chname,'{inputName}','{expectedOutputName}'", scriptContent);
-    }
-
-    [Theory]
     [InlineData(true)]   // With VPD calculation
     [InlineData(false)]  // Without VPD calculation
     public async Task GenerateScriptsAsync_HandlesVPDDependenciesCorrectly(
@@ -272,6 +88,13 @@ public class ScriptOrchestratorTests : IDisposable
         };
         ScriptOrchestrator generator = new(config);
         DynamicMockDataset dataset = new(config.InputDirectory, config.OutputDirectory);
+        List<IVariableProcessor> processors = new List<IVariableProcessor>();
+        processors.Add(new StandardVariableProcessor(ClimateVariable.Temperature));
+        processors.Add(new StandardVariableProcessor(ClimateVariable.SpecificHumidity));
+        processors.Add(new StandardVariableProcessor(ClimateVariable.SurfacePressure));
+        if (requiresVPD)
+            processors.Add(new VpdCalculator(VPDMethod.Magnus));
+        dataset.SetProcessors(processors);
 
         string scriptPath = await generator.GenerateScriptsAsync(dataset);
 
@@ -303,41 +126,6 @@ public class ScriptOrchestratorTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateVariableMergeScript_ThrowsForInvalidVariable()
-    {
-        ScriptOrchestrator generator = new ScriptOrchestrator(_config);
-        ClimateVariable variable = (ClimateVariable)666;
-        Mock<IClimateDataset> mockDataset = new();
-        mockDataset.Setup(d => d.GetVariableInfo(variable)).Returns(new VariableInfo("x", "y"));
-        ArgumentException ex = await Assert.ThrowsAnyAsync<ArgumentException>(async () => await generator.GenerateVariableMergetimeScript(mockDataset.Object, variable));
-        Assert.Equal("No configuration found for variable 666", ex.Message);
-    }
-
-    [Theory]
-    [InlineData(true, 0)]
-    [InlineData(false, 0)]
-    [InlineData(true, 9)]
-    [InlineData(false, 9)]
-    public async Task GenerateVariableRechunkScript_ConditionallyDisablesCompression(
-        bool compressionEnabled,
-        int compressionLevel
-    )
-    {
-        StaticMockDataset dataset = new("/input");
-        _config.CompressOutput = compressionEnabled;
-        _config.CompressionLevel = compressionLevel;
-        ScriptOrchestrator generator = new ScriptOrchestrator(_config);
-        string scriptPath = await generator.GenerateVariableRechunkScript(dataset, ClimateVariable.Temperature);
-        string[] scriptLines = await File.ReadAllLinesAsync(scriptPath);
-        IEnumerable<string> ncpdqLines = scriptLines.Where(l => l.Contains("ncpdq"));
-
-        if (compressionEnabled)
-            Assert.All(ncpdqLines, l => Assert.Contains($"-L{compressionLevel}", l));
-        else
-            Assert.All(ncpdqLines, l => Assert.DoesNotContain("-L", l));
-    }
-
-    [Fact]
     public async Task TestGenerateWrapperScript()
     {
         string script = Path.GetTempFileName();
@@ -354,7 +142,7 @@ public class ScriptOrchestratorTests : IDisposable
     {
         PathManager pathManager = new(_config.OutputDirectory);
         TrackingFileWriterFactory factory = new(_config.OutputDirectory);
-        ScriptOrchestrator generator = new(_config, pathManager, factory, new CdoMergetimeScriptGenerator(), new RemappingService());
+        ScriptOrchestrator generator = new(_config, pathManager, factory, new RemappingService());
         _config.InputDirectory = "/input";
         DynamicMockDataset dataset = new(_config.InputDirectory, _config.OutputDirectory);
 
@@ -363,6 +151,7 @@ public class ScriptOrchestratorTests : IDisposable
         if (factory.ActiveWriters.Count > 0)
             outputHelper.WriteLine($"Script generator failed to dispose of {factory.ActiveWriters.Count} file writers: {string.Join(", ", factory.ActiveWriters.Select(f => Path.GetFileName(f)))}");
         Assert.Empty(factory.ActiveWriters);
+        Assert.True(factory.TotalWritersCreated > 0);
     }
 
     /// <summary>
@@ -377,8 +166,19 @@ public class ScriptOrchestratorTests : IDisposable
     [Fact]
     public async Task GenerateScriptsAsync_IntegrationTest()
     {
+        const VPDMethod method = VPDMethod.AlduchovEskridge1996;
+
         const string inputDirectory = "/input";
         DynamicMockDataset dataset = new(inputDirectory, outputDirectory);
+        dataset.SetProcessors([
+            new StandardVariableProcessor(ClimateVariable.SpecificHumidity),
+            new StandardVariableProcessor(ClimateVariable.Precipitation),
+            new StandardVariableProcessor(ClimateVariable.SurfacePressure),
+            new StandardVariableProcessor(ClimateVariable.ShortwaveRadiation),
+            new StandardVariableProcessor(ClimateVariable.WindSpeed),
+            new StandardVariableProcessor(ClimateVariable.Temperature),
+            new RechunkProcessorDecorator(new VpdCalculator(method))
+        ]);
         NarClim2Config config = new()
         {
             Project = "test",
@@ -399,7 +199,7 @@ public class ScriptOrchestratorTests : IDisposable
             DryRun = true,
             Email = "test@example.com",
             JobFS = 128,
-            VPDMethod = VPDMethod.AlduchovEskridge1996,
+            VPDMethod = method,
             EmailNotifications = EmailNotificationType.After | EmailNotificationType.Before | EmailNotificationType.Aborted
         };
         ScriptOrchestrator generator = new(config);

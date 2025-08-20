@@ -1,6 +1,7 @@
 using ClimateProcessing.Models;
 using ClimateProcessing.Configuration;
 using ClimateProcessing.Models.Options;
+using System.Text;
 
 namespace ClimateProcessing.Services;
 
@@ -45,6 +46,11 @@ public class ScriptOrchestrator : IScriptGenerator
     private readonly IRemappingService remappingService;
 
     /// <summary>
+    /// The variable processor sorter service.
+    /// </summary>
+    private readonly IVariableProcessorSorter variableProcessorSorter;
+
+    /// <summary>
     /// Creates a new script generator with the default file writer factory.
     /// </summary>
     /// <param name="config">The processing configuration.</param>
@@ -81,12 +87,35 @@ public class ScriptOrchestrator : IScriptGenerator
         ProcessingConfig config,
         IPathManager pathManager,
         IFileWriterFactory fileWriterFactory,
-        IRemappingService remappingService)
+        IRemappingService remappingService) : this(
+            config,
+            pathManager,
+            fileWriterFactory,
+            remappingService,
+            new VariableProcessorSorter())
+    {
+    }
+
+    /// <summary>
+    /// Creates a new script generator.
+    /// </summary>
+    /// <param name="config">The processing configuration.</param>
+    /// <param name="pathManager">The path manager.</param>
+    /// <param name="fileWriterFactory">The file writer factory.</param>
+    /// <param name="remappingService">The remapping service.</param>
+    /// <param name="variableProcessorSorter">The variable processor sorter.</param>
+    public ScriptOrchestrator(
+        ProcessingConfig config,
+        IPathManager pathManager,
+        IFileWriterFactory fileWriterFactory,
+        IRemappingService remappingService,
+        IVariableProcessorSorter variableProcessorSorter)
     {
         _config = config;
         this.pathManager = pathManager;
         this.fileWriterFactory = fileWriterFactory;
         this.remappingService = remappingService;
+        this.variableProcessorSorter = variableProcessorSorter;
 
         PBSWalltime walltime = PBSWalltime.Parse(config.Walltime);
         PBSConfig pbsConfig = new(
@@ -135,8 +164,11 @@ public class ScriptOrchestrator : IScriptGenerator
         );
 
         // Process each variable.
-        // TODO: jobs must be created in order, so that dependencies are satisfied.
-        IEnumerable<IVariableProcessor> variables = dataset.GetProcessors(context);
+        // Sort processors to ensure dependencies are satisfied
+        IEnumerable<IVariableProcessor> variables = variableProcessorSorter.SortByDependencies(
+            dataset.GetProcessors(context));
+
+        // Create all jobs for all processors
         foreach (IVariableProcessor processor in variables)
         {
             IEnumerable<Job> jobs = await processor.CreateJobsAsync(dataset, context);
@@ -144,11 +176,6 @@ public class ScriptOrchestrator : IScriptGenerator
         }
 
         string cleanupScript = await GenerateCleanupScript(dataset);
-
-        // Add job submission logic.
-        bool requiresVpd = _config.Version == ModelVersion.Dave;
-        bool vpdEmpty = true;
-        bool allDepsEmpty = true;
 
         // Build job submission script.
         string submitJobName = $"submit_{dataset.DatasetName}";
@@ -162,69 +189,129 @@ public class ScriptOrchestrator : IScriptGenerator
         await submitScript.WriteLineAsync("# Exit immediately if any command fails.");
         await submitScript.WriteLineAsync("set -euo pipefail");
         await submitScript.WriteLineAsync();
-
-        // Ensure output directory exists.
         await submitScript.WriteLineAsync($"mkdir -p \"{_config.OutputDirectory}\"");
         await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("# Dictionary to track job IDs");
+        await submitScript.WriteLineAsync("declare -A JOB_IDS");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("# List to track all job IDs for cleanup dependency");
+        await submitScript.WriteLineAsync("ALL_JOBS=\"\"");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("# Function to submit a job");
+        await submitScript.WriteLineAsync("submit_job() {");
+        await submitScript.WriteLineAsync("    local job_name=\"${1}\"");
+        await submitScript.WriteLineAsync("    local script_path=\"${2}\"");
+        await submitScript.WriteLineAsync("    shift 2");
+        await submitScript.WriteLineAsync("    local dependency_jobs=(\"$@\")");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("    # Build dependency string if we have dependencies");
+        await submitScript.WriteLineAsync("    local deps=\"\"");
+        await submitScript.WriteLineAsync("    if [ ${#dependency_jobs[@]} -gt 0 ]; then");
+        await submitScript.WriteLineAsync("        for dep_job in \"${dependency_jobs[@]}\"; do");
+        await submitScript.WriteLineAsync("            if [ -z \"${dep_job}\" ]; then");
+        await submitScript.WriteLineAsync("                continue");
+        await submitScript.WriteLineAsync("            fi");
+        await submitScript.WriteLineAsync("            if [ -z \"${deps}\" ]; then");
+        await submitScript.WriteLineAsync("                deps=\"${JOB_IDS[${dep_job}]}\"");
+        await submitScript.WriteLineAsync("            else");
+        await submitScript.WriteLineAsync("                deps=\"${deps}:${JOB_IDS[${dep_job}]}\"");
+        await submitScript.WriteLineAsync("            fi");
+        await submitScript.WriteLineAsync("        done");
+        await submitScript.WriteLineAsync("    fi");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("    if [ -z \"${deps}\" ]; then");
+        await submitScript.WriteLineAsync("        # No dependencies");
+        await submitScript.WriteLineAsync("        JOB_ID=\"$(qsub \"${script_path}\")\"");
+        await submitScript.WriteLineAsync("    else");
+        await submitScript.WriteLineAsync("        # With dependencies");
+        await submitScript.WriteLineAsync("        JOB_ID=\"$(qsub -W depend=afterok:\"${deps}\" \"${script_path}\")\"");
+        await submitScript.WriteLineAsync("    fi");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("    # Store the job ID");
+        await submitScript.WriteLineAsync("    JOB_IDS[\"${job_name}\"]=\"${JOB_ID}\"");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("    # Add to all jobs list");
+        await submitScript.WriteLineAsync("    if [ -z \"${ALL_JOBS}\" ]; then");
+        await submitScript.WriteLineAsync("        ALL_JOBS=\"${JOB_ID}\"");
+        await submitScript.WriteLineAsync("    else");
+        await submitScript.WriteLineAsync("        ALL_JOBS=\"${ALL_JOBS}:${JOB_ID}\"");
+        await submitScript.WriteLineAsync("    fi");
+        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync("    echo \"Submitted job ${job_name}: ${JOB_ID}\"");
+        await submitScript.WriteLineAsync("}");
+        await submitScript.WriteLineAsync();
+        
+        // Get all jobs from the dependency resolver
+        IEnumerable<Job> allJobs = dependencyResolver.GetJobs();
 
-        foreach (IVariableProcessor variable in variables)
+        // Submit jobs in topological order (no job is submitted before its dependencies)
+        // We can use a simple approach since our jobs are already created with proper dependencies
+        HashSet<Job> submittedJobs = new HashSet<Job>();
+        
+        // Submit all jobs
+        foreach (Job job in allJobs)
         {
-            // Submit mergetime script.
-            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub \"{mergetimeScripts[variable]}\")\"");
-
-            // Append this job to the list of VPD dependencies if necessary.
-            if (requiresVpd && VpdCalculator.IsVpdDependency(variable))
-            {
-                if (vpdEmpty)
-                    await submitScript.WriteLineAsync("VPD_DEPS=\"${JOB_ID}\"");
-                else
-                    await submitScript.WriteLineAsync($"VPD_DEPS=\"${{VPD_DEPS}}:${{JOB_ID}}\"");
-                vpdEmpty = false;
-            }
-
-            bool variableRequired = true;
-            if (variable == ClimateVariable.SpecificHumidity && _config.Version == ModelVersion.Dave)
-                variableRequired = false;
-
-            if (variableRequired)
-            {
-                // DAVE version doesn't require specific humidity. We need to do
-                // the mergetime step, because that's used as an input for the
-                // VPD computation, but the quantity itself is not used by the
-                // model and we therefore don't need to rechunk it.
-
-                // Submit rechunk script.
-                await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{rechunkScripts[variable]}\")\"");
-
-                // Append the ID of the rechunk job to the "all jobs" list.
-                if (allDepsEmpty)
-                {
-                    await submitScript.WriteLineAsync("ALL_JOBS=\"${JOB_ID}\"");
-                    allDepsEmpty = false;
-                }
-                else
-                    await submitScript.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
-            }
-            await submitScript.WriteLineAsync();
+            await SubmitJobRecursively(job, submittedJobs, submitScript);
         }
-
-        // Submit VPD scripts.
-        if (requiresVpd)
-        {
-            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{VPD_DEPS}}\" \"{vpdScript}\")\"");
-            await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{JOB_ID}}\" \"{vpdRechunkScript}\")\"");
-            await submitScript.WriteLineAsync($"ALL_JOBS=\"${{ALL_JOBS}}:${{JOB_ID}}\"");
-            await submitScript.WriteLineAsync();
-        }
-
-        // Submit cleanup script.
+        
+        // Submit cleanup script
+        await submitScript.WriteLineAsync("# Submit cleanup script");
         await submitScript.WriteLineAsync($"JOB_ID=\"$(qsub -W depend=afterok:\"${{ALL_JOBS}}\" \"{cleanupScript}\")\"");
         await submitScript.WriteLineAsync();
 
-        await submitScript.WriteLineAsync($"echo \"Job submission complete for dataset {dataset.DatasetName}. Job ID: ${{JOB_ID}}\"");
-        await submitScript.WriteLineAsync();
+        await submitScript.WriteLineAsync($"echo \"Job submission complete for dataset {dataset.DatasetName}. Final job ID: ${{JOB_ID}}\"");
 
         return submitScript.FilePath;
+    }
+
+    /// <summary>
+    /// Recursively submits a job and its dependencies to the submission script.
+    /// </summary>
+    /// <param name="job">The job to submit.</param>
+    /// <param name="submittedJobs">Set of jobs that have already been submitted.</param>
+    /// <param name="submitScript">The script writer to write submission commands to.</param>
+    private async Task SubmitJobRecursively(Job job, HashSet<Job> submittedJobs, IFileWriter submitScript)
+    {
+        // If we've already submitted this job, we're done
+        if (submittedJobs.Contains(job))
+        {
+            return;
+        }
+
+        // First, submit all dependencies
+        foreach (Job dependency in job.Dependencies)
+        {
+            await SubmitJobRecursively(dependency, submittedJobs, submitScript);
+        }
+
+        // Now submit this job
+        await submitScript.WriteLineAsync($"# Submit job: {job.Name}");
+        
+        if (job.Dependencies.Count == 0)
+        {
+            // No dependencies
+            await submitScript.WriteLineAsync($"submit_job \"{job.Name}\" \"{job.ScriptPath}\"");
+        }
+        else
+        {
+            // Build command with dependency job names as additional arguments
+            StringBuilder command = new StringBuilder();
+            command.Append($"submit_job \"{job.Name}\" \"{job.ScriptPath}\"")
+                  .Append(' ');
+            
+            // Add each dependency job name as an argument
+            foreach (Job dependency in job.Dependencies)
+            {
+                command.Append($"\"{dependency.Name}\" ");
+            }
+            
+            await submitScript.WriteLineAsync(command.ToString().TrimEnd());
+        }
+        
+        await submitScript.WriteLineAsync();
+        
+        // Mark as submitted
+        submittedJobs.Add(job);
     }
 
     /// <summary>
