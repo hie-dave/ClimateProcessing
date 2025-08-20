@@ -22,6 +22,8 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.Precipitation, "pr" }, // "mm"
         { ClimateVariable.MaxTemperature, "tasmax" }, // "degC"
         { ClimateVariable.MinTemperature, "tasmin" }, // "degC"
+        { ClimateVariable.RelativeHumidity, "hurs" }, // "1" (trunk only)
+        { ClimateVariable.MinRelativeHumidity, "hursmin" }, // "1" (trunk only)
     };
 
     /// <summary>
@@ -65,6 +67,8 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.WindSpeed, "m s-1" },
         { ClimateVariable.MaxTemperature, "K" },
         { ClimateVariable.MinTemperature, "K" },
+        { ClimateVariable.RelativeHumidity, "1" },
+        { ClimateVariable.MinRelativeHumidity, "1" }
     };
 
     /// <summary>

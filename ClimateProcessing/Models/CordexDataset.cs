@@ -234,7 +234,7 @@ public class CordexDataset : IClimateDataset
         string prefix = string.Join("_", firstFile.Split('_').TakeWhile(p => !p.Contains(".nc")));
 
         // Add the date range and extension.
-        return $"{prefix}_{startDate:yyyyMM}-{endDate:yyyyMM}.nc";
+        return $"{prefix}_{startDate:yyyyMMdd}-{endDate:yyyyMMdd}.nc";
     }
 
     /// <inheritdoc />

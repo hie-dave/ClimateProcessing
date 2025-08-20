@@ -23,7 +23,8 @@ public static class UnitConverter
     {
         [("K", "degC")] = new("-subc,273.15", false),
         [("kg m-2 s-1", "mm")] = new("-mulc,{timestep}", true),  // Multiply by seconds in period to get accumulation
-        [("kPa", "Pa")] = new("-mulc,1000", false)
+        [("kPa", "Pa")] = new("-mulc,1000", false),
+        [("%", "1")] = new("-divc,100", false)
     };
 
     public record ConversionResult(
