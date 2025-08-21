@@ -39,6 +39,10 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.WindSpeed, AggregationMethod.Mean },
         { ClimateVariable.MaxTemperature, AggregationMethod.Maximum },
         { ClimateVariable.MinTemperature, AggregationMethod.Minimum },
+        { ClimateVariable.RelativeHumidity, AggregationMethod.Mean },
+        { ClimateVariable.MinRelativeHumidity, AggregationMethod.Mean },
+        { ClimateVariable.MaxRelativeHumidity, AggregationMethod.Mean },
+        { ClimateVariable.Vpd, AggregationMethod.Mean },
     };
 
     /// <summary>

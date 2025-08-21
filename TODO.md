@@ -15,6 +15,7 @@
   - mm d-1 -> mm
   - degC -> K
   - In general test the new func-based conversion expressions
+- Test aggregation methods for all variables
 
 ### Cordex Dataset tests
 
