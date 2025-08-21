@@ -39,9 +39,6 @@ public class RechunkProcessorDecorator : IVariableProcessor
     }
 
     /// <inheritdoc/>
-    public string Name => $"{innerProcessor.Name} => rechunk";
-
-    /// <inheritdoc/>
     public ClimateVariable TargetVariable => innerProcessor.TargetVariable;
 
     /// <inheritdoc/>

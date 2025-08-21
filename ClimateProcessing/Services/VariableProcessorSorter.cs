@@ -35,7 +35,7 @@ public class VariableProcessorSorter : IVariableProcessorSorter
             foreach (ClimateVariableFormat dependency in processor.Dependencies)
             {
                 if (!formatToProcessor.TryGetValue(dependency, out IVariableProcessor? dependencyProcessor))
-                    throw new InvalidOperationException($"Processor {processor.Name} depends on {dependency}, which is not produced by any processor");
+                    throw new InvalidOperationException($"Processor {processor.OutputFormat} depends on {dependency}, which is not produced by any processor");
                 dependencies.Add(dependencyProcessor);
             }
             processorDependencies[processor] = dependencies;

@@ -19,9 +19,6 @@ public class MeanProcessor : IVariableProcessor
     private readonly IEnumerable<ClimateVariable> dependencies;
 
     /// <inheritdoc/>
-    public string Name => $"Calculate mean of {string.Join(", ", dependencies)}";
-
-    /// <inheritdoc/>
     public ClimateVariable TargetVariable { get; private init; }
 
     /// <inheritdoc/>
@@ -67,7 +64,7 @@ public class MeanProcessor : IVariableProcessor
         await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
-        await writer.WriteLineAsync($"IN_FILES=\"{string.Join(" \" \"", inputFiles)}\"");
+        await writer.WriteLineAsync($"IN_FILES=\"{string.Join(" ", inputFiles)}\"");
         await writer.WriteLineAsync($"OUT_FILE=\"{outputFile}\"");
 
         string eqnFile = "${WORK_DIR}/mean_equations.txt";
@@ -106,6 +103,6 @@ public class MeanProcessor : IVariableProcessor
         IEnumerable<string> inputVariables = dependencies.Select(d => context.VariableManager.GetOutputRequirements(d).Name);
         string outputVariableName = context.VariableManager.GetOutputRequirements(TargetVariable).Name;
         int denominator = dependencies.Count();
-        await writer.WriteLineAsync($"{outputVariableName}=(({string.Join(" + ", inputVariables)})/{denominator})");
+        await writer.WriteLineAsync($"{outputVariableName}=({string.Join(" + ", inputVariables)})/{denominator}");
     }
 }

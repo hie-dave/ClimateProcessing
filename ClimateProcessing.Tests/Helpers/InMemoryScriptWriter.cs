@@ -4,6 +4,8 @@ namespace ClimateProcessing.Tests.Helpers;
 
 public sealed class InMemoryScriptWriter : IFileWriter
 {
+    public const string ScriptName = "In-Memory";
+
     /// <summary>
     /// The string writer used to store the script content.
     /// </summary>
@@ -12,7 +14,7 @@ public sealed class InMemoryScriptWriter : IFileWriter
     /// <summary>
     /// ID of the script (not an actual file path).
     /// </summary>
-    public string FilePath => "In-Memory";
+    public string FilePath => ScriptName;
 
     public InMemoryScriptWriter()
     {

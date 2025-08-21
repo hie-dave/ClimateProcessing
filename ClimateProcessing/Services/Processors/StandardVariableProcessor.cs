@@ -24,9 +24,6 @@ public class StandardVariableProcessor : IVariableProcessor
     private readonly IRechunkScriptGenerator rechunkGenerator;
 
     /// <inheritdoc />
-    public string Name => $"{TargetVariable}: mergetime => rechunk";
-
-    /// <inheritdoc />
     public ClimateVariable TargetVariable { get; private init; }
 
     /// <inheritdoc />

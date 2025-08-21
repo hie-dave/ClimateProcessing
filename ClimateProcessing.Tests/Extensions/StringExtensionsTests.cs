@@ -51,4 +51,15 @@ public class StringExtensionsTests
         string result = input.ReplaceFirst(search, replace);
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData("hello world", "hello ", "world")]
+    [InlineData("hello hello world", "hello ", "hello world")]
+    [InlineData("temperature_data.nc", "temperature_", "data.nc")]
+    [InlineData("prefix_prefix_suffix", "prefix_", "prefix_suffix")]
+    public void ReplaceFirst_NullReplacement_RemovesInput(string input, string search, string expected)
+    {
+        string result = input.ReplaceFirst(search, null!);
+        Assert.Equal(expected, result);
+    }
 }

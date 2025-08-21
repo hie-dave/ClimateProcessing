@@ -53,7 +53,7 @@ public class CordexConfig : ProcessingConfig
     /// Get the list of activities to process.
     /// </summary>
     /// <returns>The list of activities to process.</returns>
-    private IEnumerable<CordexActivity> GetActivities()
+    internal IEnumerable<CordexActivity> GetActivities()
     {
         if (Activities == null || !Activities.Any())
             return Enum.GetValues<CordexActivity>();
@@ -64,7 +64,7 @@ public class CordexConfig : ProcessingConfig
     /// Get the list of experiments to process.
     /// </summary>
     /// <returns>The list of experiments to process.</returns>
-    private IEnumerable<CordexExperiment> GetExperiments()
+    internal IEnumerable<CordexExperiment> GetExperiments()
     {
         if (Experiments == null || !Experiments.Any())
             return Enum.GetValues<CordexExperiment>();
@@ -75,7 +75,7 @@ public class CordexConfig : ProcessingConfig
     /// Get the list of GCMs to process.
     /// </summary>
     /// <returns>The list of GCMs to process.</returns>
-    private IEnumerable<CordexGcm> GetGCMs()
+    internal IEnumerable<CordexGcm> GetGCMs()
     {
         if (GCMs == null || !GCMs.Any())
             return Enum.GetValues<CordexGcm>();
@@ -86,7 +86,7 @@ public class CordexConfig : ProcessingConfig
     /// Get the list of institutions to process.
     /// </summary>
     /// <returns>The list of institutions to process.</returns>
-    private IEnumerable<CordexInstitution> GetInstitutions()
+    internal IEnumerable<CordexInstitution> GetInstitutions()
     {
         if (Institutions == null || !Institutions.Any())
             return Enum.GetValues<CordexInstitution>();
@@ -97,7 +97,7 @@ public class CordexConfig : ProcessingConfig
     /// Get the list of sources to process.
     /// </summary>
     /// <returns>The list of sources to process.</returns>
-    private IEnumerable<CordexSource> GetSources()
+    internal IEnumerable<CordexSource> GetSources()
     {
         if (Sources == null || !Sources.Any())
             return Enum.GetValues<CordexSource>();

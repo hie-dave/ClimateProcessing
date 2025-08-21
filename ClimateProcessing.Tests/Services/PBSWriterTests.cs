@@ -169,6 +169,7 @@ public class PBSWriterTests : IDisposable
     [InlineData(EmailNotificationType.After | EmailNotificationType.Aborted, "ae")]
     [InlineData(EmailNotificationType.Before | EmailNotificationType.Aborted, "ab")]
     [InlineData(EmailNotificationType.After | EmailNotificationType.Before | EmailNotificationType.Aborted, "abe")]
+    [InlineData((EmailNotificationType)65536, "n")] // notification is 1e16 in binary, so all flags should be disabled
     public async Task WritePBSHeader_GeneratesCorrectHeader_WithEmailNotifications(
         EmailNotificationType emailNotifications,
         string expected)

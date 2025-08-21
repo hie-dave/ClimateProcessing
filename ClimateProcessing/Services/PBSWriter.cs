@@ -121,7 +121,7 @@ public class PBSWriter
         if (config.EmailNotifications.HasFlag(EmailNotificationType.After))
             flags.Add('e');
 
-        return flags.Any() ? string.Join("", flags) : "n";
+        return flags.Count > 0 ? string.Join("", flags) : "n";
     }
 
     /// <summary>

@@ -114,6 +114,13 @@ public class CordexDatasetTests : IDisposable
     }
 
     [Fact]
+    public void GetInputFiles_ReturnsEmptyCollectionForMissingDirectory()
+    {
+        CordexDataset dataset = CreateDataset();
+        Assert.Empty(dataset.GetInputFiles(ClimateVariable.Precipitation));
+    }
+
+    [Fact]
     public void GetInputFiles_ThrowsForInvalidVariable()
     {
         CordexDataset dataset = CreateDataset();
@@ -197,7 +204,16 @@ public class CordexDatasetTests : IDisposable
     }
 
     [Fact]
-    public void GenerateOutputFileName()
+    public void GetVariableProcessors_ThrowsForInvalidModelVersion()
+    {
+        CordexDataset dataset = CreateDataset();
+        IJobCreationContext context = CreateContext(ModelVersion.Dave);
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => dataset.GetProcessors(context));
+        Assert.Contains("version", ex.Message);
+    }
+
+    [Fact]
+    public void GenerateOutputFileName_GeneratesValidFileName()
     {
         CordexDataset dataset = CreateDataset(gcm: CordexGcm.MpiEsm12HR);
         // Actual file name in the dataset:
@@ -209,6 +225,48 @@ public class CordexDatasetTests : IDisposable
 
         string expected = "pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day_19600101-19751231.nc";
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void GenerateOutputFileName_ThrowsWithoutInputFiles()
+    {
+        CordexDataset dataset = CreateDataset();
+        Assert.Throws<InvalidOperationException>(() => dataset.GenerateOutputFileName(ClimateVariable.Precipitation));
+    }
+
+    [Theory]
+    [InlineData("pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day_19600101_19601231.nc")] // note: underscore separating dates - hypen is required
+    [InlineData("asdf.nc")]
+    [InlineData("x.nc")]
+    public void GenerateOutputFileName_ThrowsForInvalidFilename(string fileName)
+    {
+        CordexDataset dataset = CreateDataset();
+
+        const ClimateVariable variable = ClimateVariable.Precipitation;
+        using TempDirectory directory = new TempDirectory(dataset.GetInputFilesDirectory(variable));
+        File.Create(Path.Combine(directory.AbsolutePath, fileName)).Dispose();
+
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => dataset.GenerateOutputFileName(variable));
+        Assert.Contains("date", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(CordexActivity.DD, CordexDomain.Aust05i, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR)]
+    [InlineData(CordexActivity.BiasCorrected, CordexDomain.Aust05i, CordexInstitution.CSIRO, CordexGcm.Cesm2, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN)]
+    public void DatasetName_IncludesCorrectComponents(
+        CordexActivity activity,
+        CordexDomain domain,
+        CordexInstitution institution,
+        CordexGcm gcm,
+        CordexExperiment experiment,
+        CordexSource source)
+    {
+        CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source);
+        Assert.Contains(domain.ToDomainId(), dataset.DatasetName);
+        Assert.Contains(institution.ToInstitutionId(), dataset.DatasetName);
+        Assert.Contains(gcm.ToGcmId(), dataset.DatasetName);
+        Assert.Contains(experiment.ToExperimentId(), dataset.DatasetName);
+        Assert.Contains(source.ToSourceId(), dataset.DatasetName);
     }
 
     private TempDirectory CreateTempFiles(IClimateDataset dataset, ClimateVariable variable, string prefix, int nfiles)

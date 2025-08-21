@@ -23,9 +23,6 @@ public class VpdCalculator : IVariableProcessor
     private readonly VPDMethod method;
 
     /// <inheritdoc/>
-    public string Name => "Estimate VPD";
-
-    /// <inheritdoc/>
     public ClimateVariable TargetVariable => ClimateVariable.Vpd;
 
     /// <inheritdoc/>

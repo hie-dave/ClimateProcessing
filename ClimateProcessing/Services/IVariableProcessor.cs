@@ -8,11 +8,6 @@ namespace ClimateProcessing.Services;
 public interface IVariableProcessor
 {
     /// <summary>
-    /// Name of the processor.
-    /// </summary>
-    string Name { get; }
-
-    /// <summary>
     /// The climate variable this processor produces.
     /// </summary>
     ClimateVariable TargetVariable { get; }

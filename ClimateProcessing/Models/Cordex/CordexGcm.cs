@@ -46,13 +46,17 @@ public enum CordexGcm
 /// </summary>
 public static class CordexGcmExtensions
 {
-    private const string accessCM2 = "ACCESS-ESM2";
-    private const string accessEsm15 = "ACCESS-ESM1-5";
-    private const string cesm2 = "CESM2";
-    private const string cmccEsm2 = "CMCC-ESM2";
-    private const string eCEarth3 = "EC-Earth3";
-    private const string mpiEsm12HR = "MPI-ESM1-2-HR";
-    private const string norEsm2MM = "NorESM2-MM";
+    private static readonly IReadOnlyDictionary<string, CordexGcm> gcmMappings =
+        new Dictionary<string, CordexGcm>(StringComparer.OrdinalIgnoreCase)
+    {
+        { "ACCESS-ESM2", CordexGcm.AccessCM2 },
+        { "ACCESS-ESM1-5", CordexGcm.AccessEsm15 },
+        { "CESM2", CordexGcm.Cesm2 },
+        { "CMCC-ESM2", CordexGcm.CmccEsm2 },
+        { "EC-Earth3", CordexGcm.ECEarth3 },
+        { "MPI-ESM1-2-HR", CordexGcm.MpiEsm12HR },
+        { "NorESM2-MM", CordexGcm.NorEsm2MM },
+    };
 
     /// <summary>
     /// Convert the <see cref="CordexGcm"/> to the corresponding GCM ID.
@@ -61,17 +65,9 @@ public static class CordexGcmExtensions
     /// <returns>The GCM ID.</returns>
     public static string ToGcmId(this CordexGcm gcm)
     {
-        return gcm switch
-        {
-            CordexGcm.AccessCM2 => accessCM2,
-            CordexGcm.AccessEsm15 => accessEsm15,
-            CordexGcm.Cesm2 => cesm2,
-            CordexGcm.CmccEsm2 => cmccEsm2,
-            CordexGcm.ECEarth3 => eCEarth3,
-            CordexGcm.MpiEsm12HR => mpiEsm12HR,
-            CordexGcm.NorEsm2MM => norEsm2MM,
-            _ => throw new ArgumentOutOfRangeException(nameof(gcm), gcm, null)
-        };
+        if (!gcmMappings.Values.Contains(gcm))
+            throw new ArgumentOutOfRangeException(nameof(gcm), gcm, null);
+        return gcmMappings.First(kvp => kvp.Value == gcm).Key;
     }
 
     /// <summary>
@@ -82,17 +78,9 @@ public static class CordexGcmExtensions
     /// <exception cref="ArgumentOutOfRangeException">Thrown if the GCM ID is not valid.</exception>
     public static CordexGcm FromString(string gcm)
     {
-        return gcm switch
-        {
-            accessCM2 => CordexGcm.AccessCM2,
-            accessEsm15 => CordexGcm.AccessEsm15,
-            cesm2 => CordexGcm.Cesm2,
-            cmccEsm2 => CordexGcm.CmccEsm2,
-            eCEarth3 => CordexGcm.ECEarth3,
-            mpiEsm12HR => CordexGcm.MpiEsm12HR,
-            norEsm2MM => CordexGcm.NorEsm2MM,
-            _ => throw new ArgumentOutOfRangeException(nameof(gcm), gcm, null)
-        };
+        if (!gcmMappings.TryGetValue(gcm, out CordexGcm gcmValue))
+            throw new ArgumentOutOfRangeException(nameof(gcm), gcm, null);
+        return gcmValue;
     }
 
     /// <summary>
