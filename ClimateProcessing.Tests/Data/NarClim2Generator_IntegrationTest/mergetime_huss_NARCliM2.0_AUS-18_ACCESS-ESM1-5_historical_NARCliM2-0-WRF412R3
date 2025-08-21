@@ -36,11 +36,14 @@ log() {
 }
 
 # File paths.
-IN_DIR="@#INPUT_DIRECTORY#@/CMIP6/DD/AUS-18/NSW-Government/ACCESS-ESM1-5/historical/r6i1p1f1/NARCliM2-0-WRF412R3/v1-r1/mon/huss/latest"
+IN_DIR="@#OUTPUT_DIRECTORY#@/NarClim2Generator_IntegrationTest_Input/CMIP6/DD/AUS-18/NSW-Government/ACCESS-ESM1-5/historical/r6i1p1f1/NARCliM2-0-WRF412R3/v1-r1/mon/huss/latest"
+MOD_DIR="${WORK_DIR}/mod"
 OUT_FILE="@#OUTPUT_DIRECTORY#@/tmp/ACCESS-ESM1-5/historical/NARCliM2-0-WRF412R3/huss_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc"
 
+mkdir -p "${MOD_DIR}"
+
 # Correct rlon values, which are incorrect in some narclim2 files.
-RLON_VALUES_FILE="@#INPUT_DIRECTORY#@/../rlon-correction-AUS-18.txt"
+RLON_VALUES_FILE="@#OUTPUT_DIRECTORY#@/NarClim2Generator_IntegrationTest_Input/../rlon-correction-AUS-18.txt"
 CORRECTED_RLON_DIR="${WORK_DIR}/corrected_rlon"
 mkdir -p "${CORRECTED_RLON_DIR}"
 log "Correcting rlon values..."
@@ -55,9 +58,9 @@ log "Successfully corrected all rlon values."
 # - Unpack data.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1  -unpack  "${FILE}" "${REMAP_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1  -unpack  "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
-IN_DIR="${REMAP_DIR}"
+IN_DIR="${MOD_DIR}"
 
 log "Merging files..."
 cdo -L -O -v -z zip1 mergetime "${IN_DIR}"/*.nc "${OUT_FILE}"

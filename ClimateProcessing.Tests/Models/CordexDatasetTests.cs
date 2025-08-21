@@ -253,17 +253,19 @@ public class CordexDatasetTests : IDisposable
     }
 
     [Theory]
-    [InlineData(CordexActivity.DD, CordexDomain.Aust05i, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR)]
-    [InlineData(CordexActivity.BiasCorrected, CordexDomain.Aust05i, CordexInstitution.CSIRO, CordexGcm.Cesm2, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN)]
+    [InlineData(CordexActivity.DD, CordexDomain.Aust05i, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR, CordexVersion.V1R1)]
+    [InlineData(CordexActivity.BiasCorrected, CordexDomain.Aust05i, CordexInstitution.CSIRO, CordexGcm.Cesm2, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN, CordexVersion.QmeAgcd)]
     public void DatasetName_IncludesCorrectComponents(
         CordexActivity activity,
         CordexDomain domain,
         CordexInstitution institution,
         CordexGcm gcm,
         CordexExperiment experiment,
-        CordexSource source)
+        CordexSource source,
+        CordexVersion version)
     {
-        CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source);
+        CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source, version);
+        Assert.Contains(version.ToVersionId(), dataset.DatasetName);
         Assert.Contains(domain.ToDomainId(), dataset.DatasetName);
         Assert.Contains(institution.ToInstitutionId(), dataset.DatasetName);
         Assert.Contains(gcm.ToGcmId(), dataset.DatasetName);

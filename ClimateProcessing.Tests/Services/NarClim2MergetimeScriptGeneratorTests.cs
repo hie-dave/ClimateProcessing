@@ -125,7 +125,7 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
     public async Task NarClim2Generator_IntegrationTest()
     {
         // Create a dummy file tree for a single variable.
-        using TempDirectory narclimDirectory = TempDirectory.Create("GenerateScriptsAsync_WithDummyFileTree_GeneratesValidScript");
+        using TempDirectory narclimDirectory = TempDirectory.Relative(outputDirectory, "NarClim2Generator_IntegrationTest_Input");
         string relPath = "CMIP6/DD/AUS-18/NSW-Government/ACCESS-ESM1-5/historical/r6i1p1f1/NARCliM2-0-WRF412R3/v1-r1/mon/{0}/latest";
 
         string[] vars = ["tas", "pr", "ps", "rsds", "huss", "sfcWind"];

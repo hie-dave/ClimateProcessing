@@ -18,10 +18,11 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     protected const string inDirVariable = "IN_DIR";
 
     /// <summary>
-    /// Name of the variable containing the directory holding all remapped input
-    /// files used as operands for the mergetime command.
+    /// Name of the variable containing the directory holding all modified input
+    /// files. Modified means any combination of remapped, unpacked, renamed,
+    /// aggregated, etc. This will not be used if no modifications are required.
     /// </summary>
-    protected const string remapDirVariable = "REMAP_DIR";
+    protected const string modDirVariable = "MOD_DIR";
 
     /// <summary>
     /// CDO's conservative remapping operator.
@@ -35,23 +36,6 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
 
     public async Task WriteMergetimeScriptAsync(IFileWriter writer, IMergetimeOptions options)
     {
-        await writer.WriteLineAsync("# File paths.");
-        await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");
-        if (!string.IsNullOrEmpty(options.GridFile))
-            await writer.WriteLineAsync($"{remapDirVariable}=\"${{WORK_DIR}}/remap\"");
-        await writer.WriteLineAsync($"OUT_FILE=\"{options.OutputFile.SanitiseBash()}\"");
-        if (!string.IsNullOrEmpty(options.GridFile))
-            await writer.WriteLineAsync($"GRID_FILE=\"{options.GridFile.SanitiseBash()}\"");
-        await writer.WriteLineAsync();
-
-        if (!string.IsNullOrEmpty(options.GridFile))
-        {
-            await writer.WriteLineAsync($"mkdir -p \"${{{remapDirVariable}}}\"");
-            await writer.WriteLineAsync();
-        }
-
-        await WritePreMerge(writer, options);
-
         string rename = GenerateRenameOperator(options.InputMetadata.Name, options.TargetMetadata.Name);
         string conversion = string.Join(" ", GenerateUnitConversionOperators(options.TargetMetadata.Name, options.InputMetadata.Units, options.TargetMetadata.Units, options.InputTimeStep));
         string aggregation = GenerateTimeAggregationOperator(options.InputTimeStep, options.OutputTimeStep, options.AggregationMethod);
@@ -60,6 +44,25 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
         string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
         string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
         operators = Regex.Replace(operators, " +", " ");
+
+        await writer.WriteLineAsync("# File paths.");
+        await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");
+
+        if (!string.IsNullOrWhiteSpace(operators))
+            await writer.WriteLineAsync($"{modDirVariable}=\"${{WORK_DIR}}/mod\"");
+        await writer.WriteLineAsync($"OUT_FILE=\"{options.OutputFile.SanitiseBash()}\"");
+        if (!string.IsNullOrEmpty(options.GridFile))
+            await writer.WriteLineAsync($"GRID_FILE=\"{options.GridFile.SanitiseBash()}\"");
+        await writer.WriteLineAsync();
+
+        // Create mod directory if needed.
+        if (!string.IsNullOrWhiteSpace(operators))
+        {
+            await writer.WriteLineAsync($"mkdir -p \"${{{modDirVariable}}}\"");
+            await writer.WriteLineAsync();
+        }
+
+        await WritePreMerge(writer, options);
 
         // The above operators all take a single file as input; therefore we
         // must perform them as a separate step to the mergetime.
@@ -80,11 +83,16 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
 
             await writer.WriteLineAsync($"for FILE in \"${{{inDirVariable}}}\"/*.nc");
             await writer.WriteLineAsync($"do");
-            await writer.WriteLineAsync($"    cdo {GetCommonArgs()} {operators} \"${{FILE}}\" \"${{{remapDirVariable}}}/$(basename \"${{FILE}}\")\"");
+            await writer.WriteLineAsync($"    cdo {GetCommonArgs()} {operators} \"${{FILE}}\" \"${{{modDirVariable}}}/$(basename \"${{FILE}}\")\"");
             await writer.WriteLineAsync("done");
-            await writer.WriteLineAsync($"{inDirVariable}=\"${{{remapDirVariable}}}\"");
+            await writer.WriteLineAsync($"{inDirVariable}=\"${{{modDirVariable}}}\"");
             await writer.WriteLineAsync();
         }
+
+        // The corrective operations read files from $IN_DIR and write to
+        // $MOD_DIR, and then set IN_DIR=$MOD_DIR for the subsequent
+        // mergetime operation. If no corrective operations are performed, then
+        // IN_DIR still holds its original value.
 
         // Merge files and perform all operations in a single step.
         await writer.WriteLineAsync("log \"Merging files...\"");
