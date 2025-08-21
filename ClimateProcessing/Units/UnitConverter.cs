@@ -1,10 +1,26 @@
-
-using System.Diagnostics.CodeAnalysis;
-
 namespace ClimateProcessing.Units;
 
+/// <summary>
+/// A function that generates a CDO operator which performs a unit
+/// conversion.
+/// </summary>
+/// <param name="timestep">The number of seconds in a time step.</param>
+/// <returns>A CDO operator which performs the unit conversion.</returns>
+public delegate string ConversionDefinition(int timestep);
+
+/// <summary>
+/// Converts between units.
+/// </summary>
 public static class UnitConverter
 {
+    /// <summary>
+    /// 0 °C in Kelvin.
+    /// </summary>
+    private const double degCToK = 273.15;
+
+    /// <summary>
+    /// A dictionary of unit synonyms/aliases.
+    /// </summary>
     private static readonly Dictionary<string, HashSet<string>> UnitSynonyms = new()
     {
         ["1"] = new() { "kg/kg", "kg kg-1", "1" },
@@ -14,32 +30,32 @@ public static class UnitConverter
         ["mm"] = new() { "mm", "kg m-2" }  // 1mm of water = 1 kg/m2
     };
 
-    private record struct ConversionDefinition(
-        Func<int, string> Expression,
-        bool RequiresTimeStep
-    );
-
+    /// <summary>
+    /// A dictionary of unit conversion expressions.
+    /// </summary>
     private static readonly Dictionary<(string From, string To), ConversionDefinition> ConversionExpressions = new()
     {
-        [("K", "degC")] = new(_ => "-subc,273.15", false),
-        [("kg m-2 s-1", "mm")] = new(t => $"-mulc,{t}", true),  // Multiply by seconds in period to get accumulation
-        [("kPa", "Pa")] = new(_ => "-mulc,1000", false),
-        [("%", "1")] = new(_ => "-divc,100", false),
-        [("mm d-1", "mm")] = new(t => $"-divc,{86400/t}", true) // Divide by seconds in day to get to mm s-1, then multiply by seconds in period to get mm
+        [("K", "degC")] = _ => $"-subc,{degCToK}",
+        [("degC", "K")] = _ => $"-addc,{degCToK}",
+        // Multiply by seconds in period to get accumulation
+        [("kg m-2 s-1", "mm")] = t => $"-mulc,{t}",
+        [("kPa", "Pa")] = _ => "-mulc,1000",
+        [("%", "1")] = _ => "-divc,100",
+        // Divide by seconds in day to get to mm s-1, then multiply by seconds in period to get mm
+        [("mm d-1", "mm")] = t => $"-divc,{86400 / t}",
     };
 
     public record ConversionResult(
         bool RequiresConversion,
         bool RequiresRenaming,
-        bool RequiresTimeStep,
-        Func<int, string>? ConversionExpression = null
+        ConversionDefinition? ConversionExpression = null
     );
 
     public static ConversionResult AnalyseConversion(string inputUnits, string targetUnits)
     {
         // Check if units are exactly the same (including notation).
         if (inputUnits == targetUnits)
-            return new ConversionResult(false, false, false);
+            return new ConversionResult(false, false);
 
         // Normalise both units to their canonical form
         string normalisedInput = NormaliseUnits(inputUnits);
@@ -47,12 +63,12 @@ public static class UnitConverter
 
         // Check if units are equivalent (different notation but same meaning).
         if (AreUnitsEquivalent(normalisedInput, normalisedTarget))
-            return new ConversionResult(false, true, false);
+            return new ConversionResult(false, true);
 
         // Check if we have a conversion expression.
         var conversionKey = (normalisedInput, normalisedTarget);
         if (ConversionExpressions.TryGetValue(conversionKey, out var conversion))
-            return new ConversionResult(true, true, conversion.RequiresTimeStep, conversion.Expression);
+            return new ConversionResult(true, true, conversion);
 
         throw new ArgumentException($"Unsupported unit conversion from {inputUnits} to {targetUnits}");
     }
@@ -73,6 +89,12 @@ public static class UnitConverter
         return units;
     }
 
+    /// <summary>
+    /// Checks if two unit strings are equivalent (different notation but same meaning).
+    /// </summary>
+    /// <param name="units1">The first unit string.</param>
+    /// <param name="units2">The second unit string.</param>
+    /// <returns>True if the unit strings are equivalent, false otherwise.</returns>
     internal static bool AreUnitsEquivalent(string units1, string units2)
     {
         // First check if they're the same after normalisation.
@@ -87,6 +109,13 @@ public static class UnitConverter
         return false;
     }
 
+    /// <summary>
+    /// Generates a CDO operator which performs a unit conversion.
+    /// </summary>
+    /// <param name="inputUnits">The units of the input variable.</param>
+    /// <param name="targetUnits">The units of the output variable.</param>
+    /// <param name="timeStep">The time step of the variable.</param>
+    /// <returns>A CDO operator which performs the unit conversion.</returns>
     public static string GenerateConversionExpression(
         string inputUnits,
         string targetUnits,

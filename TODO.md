@@ -13,6 +13,7 @@
   the test to emit different output and therefore fail.
 - Test the new unit conversion behaviour
   - mm d-1 -> mm
+  - degC -> K
   - In general test the new func-based conversion expressions
 
 ### Cordex Dataset tests

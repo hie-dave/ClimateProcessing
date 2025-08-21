@@ -6,22 +6,20 @@ namespace ClimateProcessing.Tests.Units;
 public class UnitConverterTests
 {
     [Theory]
-    [InlineData("W/m2", "W/m2", false, false, false)]  // Exact match
-    [InlineData("W/m2", "W m-2", false, true, false)]  // Different notation, same meaning
-    [InlineData("K", "degC", true, true, false)]       // Requires conversion, no timestep
-    [InlineData("kg m-2 s-1", "mm", true, true, true)] // Requires conversion with timestep
+    [InlineData("W/m2", "W/m2", false, false)]  // Exact match
+    [InlineData("W/m2", "W m-2", false, true)]  // Different notation, same meaning
+    [InlineData("K", "degC", true, true)]       // Requires conversion, no timestep
+    [InlineData("kg m-2 s-1", "mm", true, true)] // Requires conversion with timestep
     public void AnalyzeConversion_HandlesVariousUnitCombinations(
         string inputUnits,
         string targetUnits,
         bool expectedRequiresConversion,
-        bool expectedRequiresRenaming,
-        bool expectedRequiresTimeStep)
+        bool expectedRequiresRenaming)
     {
         var result = UnitConverter.AnalyseConversion(inputUnits, targetUnits);
 
         Assert.Equal(expectedRequiresConversion, result.RequiresConversion);
         Assert.Equal(expectedRequiresRenaming, result.RequiresRenaming);
-        Assert.Equal(expectedRequiresTimeStep, result.RequiresTimeStep);
 
         if (expectedRequiresConversion)
         {
