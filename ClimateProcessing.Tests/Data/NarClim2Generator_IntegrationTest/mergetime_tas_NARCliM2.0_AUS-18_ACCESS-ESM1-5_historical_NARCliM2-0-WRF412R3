@@ -59,7 +59,7 @@ log "Successfully corrected all rlon values."
 # - Convert units from K to degC.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1  -subc,273.15 -setattribute,'tas@units=degC' -unpack  "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -subc,273.15 -setattribute,'tas@units=degC' -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 

@@ -43,7 +43,7 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
         string remapOperator = GetRemapOperator(options.RemapAlgorithm);
         string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
         string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
-        operators = Regex.Replace(operators, " +", " ");
+        operators = Regex.Replace(operators, " +", " ").Trim();
 
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");

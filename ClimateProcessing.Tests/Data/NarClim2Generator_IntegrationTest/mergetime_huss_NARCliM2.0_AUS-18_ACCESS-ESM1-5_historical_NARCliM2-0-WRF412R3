@@ -58,7 +58,7 @@ log "Successfully corrected all rlon values."
 # - Unpack data.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1  -unpack  "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 
