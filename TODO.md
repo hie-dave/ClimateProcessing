@@ -16,6 +16,9 @@
   - degC -> K
   - In general test the new func-based conversion expressions
 - Test aggregation methods for all variables
+- Why did we not get a test failure when generating cordex processing scripts?
+  - There should have been an exception thrown because no aggregation method was
+    previously defined for the relative humidity variables (e.g. hursmin)
 
 ### Cordex Dataset tests
 

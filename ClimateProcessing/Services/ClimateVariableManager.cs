@@ -23,7 +23,9 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.MaxTemperature, "tasmax" }, // "degC"
         { ClimateVariable.MinTemperature, "tasmin" }, // "degC"
         { ClimateVariable.RelativeHumidity, "hurs" }, // "1" (trunk only)
-        { ClimateVariable.MinRelativeHumidity, "hursmin" }, // "1" (trunk only)
+        { ClimateVariable.MinRelativeHumidity, "hursmin" }, // "1" (intermediate output only)
+        { ClimateVariable.MaxRelativeHumidity, "hursmax" }, // "1" (intermediate output only)
+        { ClimateVariable.Vpd, "vpd" }, // "kPa" (dave only)
     };
 
     /// <summary>
@@ -93,7 +95,7 @@ public class ClimateVariableManager : IClimateVariableManager
     public VariableInfo GetOutputRequirements(ClimateVariable variable)
     {
         if (!outputNames.TryGetValue(variable, out string? outName))
-            throw new ArgumentException($"No configuration found for variable {variable}");
+            throw new ArgumentException($"No output requirements defined for variable {variable}");
         string outUnits = GetTargetUnits(variable);
         return new VariableInfo(outName, outUnits);
     }
