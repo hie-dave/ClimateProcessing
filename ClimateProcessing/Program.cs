@@ -37,7 +37,7 @@ static async Task Process(ProcessingConfig config)
 
     string wrapper = await ScriptOrchestrator.GenerateWrapperScript(config.OutputDirectory, scripts);
     Console.WriteLine($"Processing scripts have been generated in:");
-    Console.WriteLine($"{Path.GetDirectoryName(config.OutputDirectory)}");
+    Console.WriteLine($"{config.OutputDirectory}");
     Console.WriteLine("\nTo submit the jobs to PBS, run:");
     Console.WriteLine($"{wrapper}");
 }
