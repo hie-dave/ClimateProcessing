@@ -11,6 +11,9 @@
   file paths in the temp directory. On some systems, this can be a directory
   which generates a PBS storage directive (e.g. /scratch/prj0/tmp), which causes
   the test to emit different output and therefore fail.
+- Test the new unit conversion behaviour
+  - mm d-1 -> mm
+  - In general test the new func-based conversion expressions
 
 ### Cordex Dataset tests
 

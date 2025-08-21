@@ -15,23 +15,24 @@ public static class UnitConverter
     };
 
     private record struct ConversionDefinition(
-        string Expression,
+        Func<int, string> Expression,
         bool RequiresTimeStep
     );
 
     private static readonly Dictionary<(string From, string To), ConversionDefinition> ConversionExpressions = new()
     {
-        [("K", "degC")] = new("-subc,273.15", false),
-        [("kg m-2 s-1", "mm")] = new("-mulc,{timestep}", true),  // Multiply by seconds in period to get accumulation
-        [("kPa", "Pa")] = new("-mulc,1000", false),
-        [("%", "1")] = new("-divc,100", false)
+        [("K", "degC")] = new(_ => "-subc,273.15", false),
+        [("kg m-2 s-1", "mm")] = new(t => $"-mulc,{t}", true),  // Multiply by seconds in period to get accumulation
+        [("kPa", "Pa")] = new(_ => "-mulc,1000", false),
+        [("%", "1")] = new(_ => "-divc,100", false),
+        [("mm d-1", "mm")] = new(t => $"-divc,{86400/t}", true) // Divide by seconds in day to get to mm s-1, then multiply by seconds in period to get mm
     };
 
     public record ConversionResult(
         bool RequiresConversion,
         bool RequiresRenaming,
         bool RequiresTimeStep,
-        string? ConversionExpression = null
+        Func<int, string>? ConversionExpression = null
     );
 
     public static ConversionResult AnalyseConversion(string inputUnits, string targetUnits)
@@ -101,10 +102,6 @@ public static class UnitConverter
         // Conversion expression cannot be null here. AnalyseConversion can only
         // return RequiresConversion=true when the conversion expression is
         // non-null.
-        string expression = result.ConversionExpression!;
-        if (result.RequiresTimeStep)
-            expression = expression.Replace("{timestep}", timeStep.GetSecondsInPeriod().ToString());
-
-        return expression;
+        return result.ConversionExpression!(timeStep.GetSecondsInPeriod());
     }
 }
