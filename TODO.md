@@ -12,6 +12,14 @@
   which generates a PBS storage directive (e.g. /scratch/prj0/tmp), which causes
   the test to emit different output and therefore fail.
 
+### Cordex Dataset tests
+
+Write tests for:
+
+- cordex config and its validation
+- cordex version realisation and its interaction with activity
+- cordex dataset appends "Adjust" to variable names for bias-adjusted output
+
 ### ScriptContentGenerator (or NcoScriptGenerator)
 
 - Merge script content generation

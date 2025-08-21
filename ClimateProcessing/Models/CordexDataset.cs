@@ -285,7 +285,14 @@ public class CordexDataset : IClimateDataset
     {
         if (!inputVariables.TryGetValue(variable, out var info))
             throw new ArgumentException($"Variable {variable} not supported in CORDEX dataset");
-        return new VariableInfo(info.name, info.units);
+
+        // For some reason, the variable names in the bias-adjusted output have
+        // "adjust" appended to them.
+        string name = info.name;
+        if (activity == CordexActivity.BiasCorrected)
+            name = $"{name}Adjust";
+
+        return new VariableInfo(name, info.units);
     }
 
     /// <summary>
