@@ -214,7 +214,7 @@ public class CordexDataset : IClimateDataset
     }
 
     /// <inheritdoc /> 
-    public string DatasetName => $"{domain.ToDomainId()}_{gcm.ToGcmId()}_{experiment.ToExperimentId()}_{gcm.GetVariantLabel()}_{institution.ToInstitutionId()}_{source.ToSourceId()}_{versionRealisation}_{frequency.ToFrequencyId()}";
+    public string DatasetName => $"{domain.ToDomainId()}_{gcm.ToGcmId()}_{experiment.ToExperimentId()}_{gcm.GetVariantLabel()}_{institution.ToInstitutionId()}_{source.ToSourceId()}_{versionRealisation.ToVersionId()}_{frequency.ToFrequencyId()}";
 
     /// <inheritdoc />
     public string GenerateOutputFileName(ClimateVariable variable)
