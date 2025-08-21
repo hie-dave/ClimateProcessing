@@ -103,7 +103,9 @@ public class ClimateVariableManager : IClimateVariableManager
     /// <inheritdoc/>
     public AggregationMethod GetAggregationMethod(ClimateVariable variable)
     {
-        return aggregationMethods[variable];
+        if (!aggregationMethods.TryGetValue(variable, out AggregationMethod method))
+            throw new ArgumentException($"No aggregation method defined for variable {variable}");
+        return method;
     }
 
     /// <summary>
@@ -116,7 +118,7 @@ public class ClimateVariableManager : IClimateVariableManager
     {
         IReadOnlyDictionary<ClimateVariable, string> dict = GetDictionary();
         if (!dict.TryGetValue(variable, out string? units))
-            throw new ArgumentException($"No configuration found for variable {variable}");
+            throw new ArgumentException($"No unit requirements defined for variable {variable} in version {version}");
         return units;
     }
 
