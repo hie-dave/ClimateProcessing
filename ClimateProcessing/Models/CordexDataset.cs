@@ -166,9 +166,9 @@ public class CordexDataset : IClimateDataset
     private readonly CordexSource source;
 
     /// <summary>
-    /// The version realisation of CORDEX data. This is currently invariant.
+    /// The version realisation of the CORDEX data.
     /// </summary>
-    private const string versionRealisation = "v1-r1";
+    private readonly CordexVersion versionRealisation;
 
     /// <summary>
     /// The frequency of the dataset.
@@ -200,7 +200,8 @@ public class CordexDataset : IClimateDataset
         CordexInstitution institution,
         CordexGcm gcm,
         CordexExperiment experiment,
-        CordexSource source)
+        CordexSource source,
+        CordexVersion version)
     {
         this.basePath = basePath;
         this.activity = activity;
@@ -209,6 +210,7 @@ public class CordexDataset : IClimateDataset
         this.gcm = gcm;
         this.experiment = experiment;
         this.source = source;
+        versionRealisation = version;
     }
 
     /// <inheritdoc /> 
@@ -261,7 +263,7 @@ public class CordexDataset : IClimateDataset
             experiment.ToExperimentId(),
             gcm.GetVariantLabel(),
             source.ToSourceId(),
-            versionRealisation,
+            versionRealisation.ToVersionId(),
             frequency.ToFrequencyId(),
             GetVariableInfo(variable).Name,
             version);

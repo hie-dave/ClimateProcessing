@@ -31,27 +31,29 @@ public class CordexDatasetTests : IDisposable
     }
 
     [Theory]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR, ClimateVariable.Precipitation)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR, ClimateVariable.ShortwaveRadiation)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.Ccamv2203SN, ClimateVariable.WindSpeed)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Ssp126, CordexSource.Ccamv2203SN, ClimateVariable.MaxTemperature)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Ssp126, CordexSource.Ccamv2203SN, ClimateVariable.MinTemperature)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessEsm15, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN, ClimateVariable.MaxTemperature)]
-    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.Cesm2, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN, ClimateVariable.MinTemperature)]
-    [InlineData(CordexActivity.DD, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, ClimateVariable.MaxRelativeHumidity)]
-    [InlineData(CordexActivity.DD, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, ClimateVariable.MinRelativeHumidity)]
-    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, ClimateVariable.Precipitation)]
-    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, ClimateVariable.ShortwaveRadiation)]
-    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, ClimateVariable.WindSpeed)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR, CordexVersion.V1R1, ClimateVariable.Precipitation)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.BarpaR, CordexVersion.V1R1, ClimateVariable.ShortwaveRadiation)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Historical, CordexSource.Ccamv2203SN, CordexVersion.V1R1, ClimateVariable.WindSpeed)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Ssp126, CordexSource.Ccamv2203SN, CordexVersion.V1R1, ClimateVariable.MaxTemperature)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessCM2, CordexExperiment.Ssp126, CordexSource.Ccamv2203SN, CordexVersion.V1R1, ClimateVariable.MinTemperature)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.AccessEsm15, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN, CordexVersion.V1R1, ClimateVariable.MaxTemperature)]
+    [InlineData(CordexActivity.DD, CordexInstitution.BOM, CordexGcm.Cesm2, CordexExperiment.Ssp370, CordexSource.Ccamv2203SN, CordexVersion.V1R1, ClimateVariable.MinTemperature)]
+    [InlineData(CordexActivity.DD, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.V1R1, ClimateVariable.MaxRelativeHumidity)]
+    [InlineData(CordexActivity.DD, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.V1R1, ClimateVariable.MinRelativeHumidity)]
+    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.MrnbcAgcd, ClimateVariable.Precipitation)]
+    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.MrnbcBarra, ClimateVariable.ShortwaveRadiation)]
+    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.QmeAgcd, ClimateVariable.WindSpeed)]
+    [InlineData(CordexActivity.BiasCorrected, CordexInstitution.CSIRO, CordexGcm.CmccEsm2, CordexExperiment.Ssp370, CordexSource.BarpaR, CordexVersion.QmeBarra, ClimateVariable.WindSpeed)]
     public void GetInputFilesDirectory_ReturnsCorrectDirectory(
         CordexActivity activity,    
         CordexInstitution institution,
         CordexGcm gcm,
         CordexExperiment experiment,
         CordexSource source,
+        CordexVersion version,
         ClimateVariable variable)
     {
-        CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source);
+        CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source, version);
         string expected = Path.Combine(
             inputDirectory,
             "output",
@@ -63,7 +65,7 @@ public class CordexDatasetTests : IDisposable
             experiment.ToExperimentId(),
             gcm.GetVariantLabel(),
             source.ToSourceId(),
-            "v1-r1",
+            version.ToVersionId(),
             "day",
             dataset.GetVariableInfo(variable).Name,
             "latest");
@@ -311,7 +313,8 @@ public class CordexDatasetTests : IDisposable
         CordexInstitution institution = CordexInstitution.BOM,
         CordexGcm gcm = CordexGcm.AccessCM2,
         CordexExperiment experiment = CordexExperiment.Historical,
-        CordexSource source = CordexSource.BarpaR)
+        CordexSource source = CordexSource.BarpaR,
+        CordexVersion version = CordexVersion.V1R1)
     {
         return new CordexDataset(
             inputDirectory,
@@ -320,6 +323,7 @@ public class CordexDatasetTests : IDisposable
             institution,
             gcm,
             experiment,
-            source);
+            source,
+            version);
     }
 }

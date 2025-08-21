@@ -10,6 +10,9 @@ namespace ClimateProcessing.Configuration;
 [Verb("cordex", HelpText = "Process CORDEX-CMIP6 data.")]
 public class CordexConfig : ProcessingConfig
 {
+    [Option("cordex-version", HelpText = "Versions to process. Valid values: v1-r1, v1-r1-ACS-MRNBC-AGCDv1-1960-2022, v1-r1-ACS-MRNBC-BARRAR2-1980-2022, v1-r1-ACS-QME-AGCDv1-1960-2022, v1-r1-ACS-QME-BARRAR2-1980-2022. Default: process all versions.")]
+    public IEnumerable<string>? Versions { get; set; }
+
     [Option("activity", HelpText = "Activities to process. Valid values: DD, bias-adjusted-output. Default: process all activities.")]
     public IEnumerable<string>? Activities { get; set; }
 
@@ -28,6 +31,7 @@ public class CordexConfig : ProcessingConfig
     /// <inheritdoc />
     public override IEnumerable<IClimateDataset> CreateDatasets()
     {
+        IEnumerable<CordexVersion> versions = GetVersions();
         IEnumerable<CordexActivity> activities = GetActivities();
         IEnumerable<CordexExperiment> experiments = GetExperiments();
         IEnumerable<CordexGcm> gcms = GetGCMs();
@@ -35,6 +39,7 @@ public class CordexConfig : ProcessingConfig
         IEnumerable<CordexSource> sources = GetSources();
 
         return from activity in activities
+               from version in versions.Where(v => v.IsSupportedFor(activity))
                from experiment in experiments
                from gcm in gcms
                from institution in institutions
@@ -46,7 +51,40 @@ public class CordexConfig : ProcessingConfig
                    institution: institution,
                    gcm: gcm,
                    experiment: experiment,
-                   source: source);
+                   source: source,
+                   version: version);
+    }
+
+    public override void Validate()
+    {
+        base.Validate();
+
+        if (InputTimeStepHours != 24)
+            throw new ArgumentException("Input timestep must be daily (24 hours) for CORDEX datasets.", nameof(InputTimeStep));
+
+        // Output timestep >= input timestep is guaranteed by base class.
+
+        // Guarantee that all versions and activities are supported.
+        IEnumerable<CordexVersion> versions = GetVersions();
+        IEnumerable<CordexActivity> activities = GetActivities();
+        foreach (var version in versions)
+            if (!activities.Any(a => version.IsSupportedFor(a)))
+                throw new ArgumentException($"Version {version} is not supported for any of the selected activities ({string.Join(", ", activities.Select(a => a.ToString()))}).", nameof(version));
+
+        foreach (var activity in activities)
+            if (!versions.Any(v => v.IsSupportedFor(activity)))
+                throw new ArgumentException($"Activity {activity} is not supported for any of the selected versions ({string.Join(", ", versions.Select(v => v.ToString()))}).", nameof(activity));
+    }
+
+    /// <summary>
+    /// Get the list of versions to process.
+    /// </summary>
+    /// <returns>The list of versions to process.</returns>
+    internal IEnumerable<CordexVersion> GetVersions()
+    {
+        if (Versions == null || !Versions.Any())
+            return Enum.GetValues<CordexVersion>();
+        return Versions.Select(CordexVersionExtensions.FromString);
     }
 
     /// <summary>

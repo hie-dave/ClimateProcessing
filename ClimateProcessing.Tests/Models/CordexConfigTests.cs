@@ -260,11 +260,17 @@ public class CordexConfigTests
 
         IEnumerable<IClimateDataset> datasets = config.CreateDatasets();
 
-        int expectedCount = Enum.GetValues<CordexActivity>().Length *
-                           Enum.GetValues<CordexExperiment>().Length *
-                           Enum.GetValues<CordexGcm>().Length *
-                           Enum.GetValues<CordexInstitution>().Length *
-                           Enum.GetValues<CordexSource>().Length;
+        int ncombinations = Enum.GetValues<CordexExperiment>().Length *
+                            Enum.GetValues<CordexGcm>().Length *
+                            Enum.GetValues<CordexInstitution>().Length *
+                            Enum.GetValues<CordexSource>().Length;
+
+        // Each combination is combined with all valid activity + version.
+        // 2 activities: DD, bias-corrected
+        // DD: 1 valid version (v1-r1)
+        // BC: 4 valid versions
+        // Total combinations = ncombinations * 1 + ncombinations * 4
+        int expectedCount = ncombinations * 5;
 
         Assert.Equal(expectedCount, datasets.Count());
         Assert.All(datasets, d => Assert.IsType<CordexDataset>(d));
