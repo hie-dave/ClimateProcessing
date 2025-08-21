@@ -74,7 +74,8 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.MaxTemperature, "K" },
         { ClimateVariable.MinTemperature, "K" },
         { ClimateVariable.RelativeHumidity, "1" },
-        { ClimateVariable.MinRelativeHumidity, "1" }
+        { ClimateVariable.MinRelativeHumidity, "1" },
+        { ClimateVariable.MaxRelativeHumidity, "1" }
     };
 
     /// <summary>
