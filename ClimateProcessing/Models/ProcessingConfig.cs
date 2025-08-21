@@ -48,13 +48,13 @@ public abstract class ProcessingConfig
     [Option("email", Required = false, HelpText = "Email address for job notifications (optional)")]
     public string Email { get; set; } = string.Empty;
 
-    [Option("email-notification", Required = false, Default = EmailNotificationType.None, HelpText = "Email notification types (can be combined): none, before, after, error")]
+    [Option("email-notification", Required = false, Default = EmailNotificationType.None, HelpText = "Email notification types (can be combined): none, before, after, aborted")]
     public EmailNotificationType EmailNotifications { get; set; } = EmailNotificationType.None;
 
     [Option("vpd-method", Default = VPDMethod.Magnus, HelpText = "Method to calculate VPD: Magnus (default), Buck1981, AlduchovEskridge1996, AllenFAO1998, or Sonntag1990")]
     public VPDMethod VPDMethod { get; set; } = VPDMethod.Magnus;
 
-    [Option("version", Default = ModelVersion.Dave, HelpText = "The version of LPJ-Guess by which the data is going to be used.")]
+    [Option("version", Default = ModelVersion.Dave, HelpText = "The version of LPJ-Guess by which the data is going to be used. Allowed values: Dave, Trunk")]
     public ModelVersion Version { get; set; } = ModelVersion.Dave;
 
     [Option("input-timestep", HelpText = "Input time step in hours")]
