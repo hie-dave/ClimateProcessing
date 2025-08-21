@@ -7,6 +7,10 @@
 - Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
 - Revise unit tests for vpd calculator. Should we test the generated equations?
 - Make CdoMergetimeScriptGenerator verbosity configurable
+- The integration tests (for ScriptOrchestrator and narclim script gen.) use
+  file paths in the temp directory. On some systems, this can be a directory
+  which generates a PBS storage directive (e.g. /scratch/prj0/tmp), which causes
+  the test to emit different output and therefore fail.
 
 ### ScriptContentGenerator (or NcoScriptGenerator)
 

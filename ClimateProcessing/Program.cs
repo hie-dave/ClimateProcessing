@@ -2,17 +2,18 @@ using CommandLine;
 using ClimateProcessing.Models;
 using ClimateProcessing.Services;
 using System.Runtime.CompilerServices;
+using ClimateProcessing.Configuration;
 
 [assembly: InternalsVisibleTo("ClimateProcessing.Tests")]
 
 // Parse command line arguments
-var result = Parser.Default.ParseArguments<NarClim2Config>(args);
+var result = Parser.Default.ParseArguments<NarClim2Config, CordexConfig>(args);
 
 await result.WithParsedAsync(async config =>
 {
     try
     {
-        await Process(config);
+        await Process((ProcessingConfig)config);
     }
     catch (Exception ex)
     {
