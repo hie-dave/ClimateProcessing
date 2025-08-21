@@ -24,7 +24,7 @@ public abstract class ProcessingConfig
     [Option('q', "queue", Required = false, Default = "normal", HelpText = "PBS queue to which job will be submitted")]
     public string Queue { get; set; } = "normal";
 
-    [Option('w', "walltime", Required = false, Default = "02:00:00", HelpText = "Walltime limit (HH:MM:SS)")]
+    [Option('w', "walltime", Required = false, Default = "02:00:00", HelpText = "Walltime limit for each individual PBS job (HH:MM:SS)")]
     public string Walltime { get; set; } = "12:00:00";
 
     [Option('m', "memory", Required = false, Default = 16, HelpText = "Memory limit in GiB")]

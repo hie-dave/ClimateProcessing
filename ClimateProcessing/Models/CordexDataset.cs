@@ -223,7 +223,7 @@ public class CordexDataset : IClimateDataset
         List<string> inputFiles = GetInputFiles(variable).ToList();
 
         if (inputFiles.Count == 0)
-            throw new InvalidOperationException($"No input files found for variable {GetVariableInfo(variable).Name} in domain {domain}, GCM {gcm}, experiment {experiment}.");
+            throw new InvalidOperationException($"No input files found for variable {GetVariableInfo(variable).Name} in domain {domain}, GCM {gcm}, experiment {experiment}. Expected path:\n{GetInputFilesDirectory(variable)}");
 
         DateTime startDate = GetDateFromFilename(inputFiles.First(), true);
         DateTime endDate = GetDateFromFilename(inputFiles.Last(), false);
