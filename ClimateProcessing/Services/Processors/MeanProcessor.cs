@@ -62,7 +62,8 @@ public class MeanProcessor : IVariableProcessor
         string[] requiredFiles = [.. inputFiles, outputFile];
         IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        string jobName = $"calc_mean_{TargetVariable}";
+        VariableInfo varInfo = context.VariableManager.GetOutputRequirements(TargetVariable);
+        string jobName = $"calc_mean_{varInfo.Name}_{dataset.DatasetName}";
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
 
         await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);

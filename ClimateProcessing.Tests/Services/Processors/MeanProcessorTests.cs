@@ -118,7 +118,7 @@ public class MeanProcessorTests
         Assert.Single(jobs);
         Job job = jobs[0];
 
-        Assert.Equal($"calc_mean_{targetVariable}", job.Name);
+        Assert.Equal($"calc_mean_{mockVariableManager.Object.GetOutputRequirements(targetVariable).Name}_{mockDataset.Object.DatasetName}", job.Name);
         Assert.Equal(InMemoryScriptWriter.ScriptName, job.ScriptPath);
         Assert.Equal(ClimateVariableFormat.Timeseries(targetVariable), job.Output);
         Assert.Equal(outputPath, job.OutputPath);
