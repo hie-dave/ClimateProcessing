@@ -34,8 +34,9 @@ public interface IPathManager
     /// <param name="dataset">The dataset.</param>
     /// <param name="variable">The variable.</param>
     /// <param name="type">The type of path.</param>
+    /// <param name="variableManager">The variable manager.</param>
     /// <returns>The file name.</returns>
-    string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType type);
+    string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType type, IClimateVariableManager variableManager);
 
     /// <summary>
     /// Gets the base directory for the specified path type.

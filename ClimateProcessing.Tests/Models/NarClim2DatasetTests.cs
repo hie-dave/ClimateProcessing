@@ -7,7 +7,7 @@ namespace ClimateProcessing.Tests.Models;
 public class NarClim2DatasetTests : IDisposable
 {
     private readonly string _testDir;
-    private readonly NarClim2Dataset _dataset;
+    private readonly NarClim2Dataset dataset;
 
     private readonly NarClim2Domain _domain;
     private readonly NarClim2GCM _gcm;
@@ -49,7 +49,7 @@ public class NarClim2DatasetTests : IDisposable
             CreateTestFile(Path.Combine(varDir, $"{var}_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195201-195212.nc"));
         }
 
-        _dataset = new NarClim2Dataset(
+        dataset = new NarClim2Dataset(
             _testDir,
             domain: _domain,
             gcm: _gcm,
@@ -75,11 +75,11 @@ public class NarClim2DatasetTests : IDisposable
     [InlineData(ClimateVariable.Precipitation, 2)]
     public void GetInputFiles_ReturnsCorrectFiles(ClimateVariable variable, int nfile)
     {
-        List<string> files = _dataset.GetInputFiles(variable).ToList();
+        List<string> files = dataset.GetInputFiles(variable).ToList();
 
         Assert.Equal(nfile, files.Count);
 
-        string name = _dataset.GetVariableInfo(variable).Name;
+        string name = dataset.GetVariableInfo(variable).Name;
         Assert.Contains(files, f => Path.GetFileName(f).StartsWith($"{name}_") && f.Contains("195101-195112"));
         Assert.Contains(files, f => Path.GetFileName(f).StartsWith($"{name}_") && f.Contains("195201-195212"));
     }
@@ -93,7 +93,7 @@ public class NarClim2DatasetTests : IDisposable
     [InlineData(ClimateVariable.WindSpeed, "sfcWind", "m s-1")]
     public void GetVariableInfo_ReturnsCorrectInfo(ClimateVariable variable, string expectedName, string expectedUnits)
     {
-        var info = _dataset.GetVariableInfo(variable);
+        var info = dataset.GetVariableInfo(variable);
         Assert.Equal(expectedName, info.Name);
         Assert.Equal(expectedUnits, info.Units);
     }
@@ -102,7 +102,7 @@ public class NarClim2DatasetTests : IDisposable
     public void GetVariableInfo_ForInvalidVariable_ThrowsException()
     {
         var invalidVariable = (ClimateVariable)999;
-        var ex = Assert.Throws<ArgumentException>(() => _dataset.GetVariableInfo(invalidVariable));
+        var ex = Assert.Throws<ArgumentException>(() => dataset.GetVariableInfo(invalidVariable));
         Assert.Contains("not supported in NARCliM2 dataset", ex.Message);
     }
 
@@ -111,11 +111,22 @@ public class NarClim2DatasetTests : IDisposable
     [InlineData(ClimateVariable.Precipitation)]
     public void GenerateOutputFileName_ReturnsCorrectPattern(ClimateVariable variable)
     {
-        var filename = _dataset.GenerateOutputFileName(variable);
-        string name = _dataset.GetVariableInfo(variable).Name;
+        var filename = dataset.GenerateOutputFileName(variable, dataset.GetVariableInfo(variable));
+        string name = dataset.GetVariableInfo(variable).Name;
 
         string expected = $"{name}_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc";
         Assert.Equal(expected, filename);
+    }
+
+    [Theory]
+    [InlineData(ClimateVariable.Temperature, "tav")]
+    [InlineData(ClimateVariable.Precipitation, "precip")]
+    public void GenerateOutputFileName_UsesRenamedFileName(ClimateVariable variable, string newName)
+    {
+        VariableInfo metadata = dataset.GetVariableInfo(variable);
+        VariableInfo newMetadata = new VariableInfo(newName, metadata.Units);
+        string fileName = dataset.GenerateOutputFileName(variable, newMetadata);
+        Assert.Equal($"{newName}_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_195101-195212.nc", fileName);
     }
 
     [Fact]
@@ -127,7 +138,7 @@ public class NarClim2DatasetTests : IDisposable
         var emptyDataset = new NarClim2Dataset(emptyDir);
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            emptyDataset.GenerateOutputFileName(ClimateVariable.Temperature));
+            emptyDataset.GenerateOutputFileName(ClimateVariable.Temperature, new VariableInfo("tas", "K")));
         Assert.Contains("No input files found for variable", ex.Message);
     }
 

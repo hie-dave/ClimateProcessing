@@ -226,9 +226,33 @@ public class CordexDatasetTests : IDisposable
         string prefix = "pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day";
         ClimateVariable variable = ClimateVariable.Precipitation;
         using TempDirectory directory = CreateTempFiles(dataset, variable, 16, prefix);
-        string actual = dataset.GenerateOutputFileName(variable);
+        string actual = dataset.GenerateOutputFileName(variable, dataset.GetVariableInfo(variable));
 
         string expected = "pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day_19600101-19751231.nc";
+        Assert.Equal(expected, actual);
+    }
+
+    /// <summary>
+    /// This test ensures that if a variable is renamed, the variable name, as
+    /// it appears in the file name, is changed as well.
+    /// </summary>
+    [Theory]
+    [InlineData(ClimateVariable.ShortwaveRadiation, "rad")]
+    [InlineData(ClimateVariable.Precipitation, "precip")]
+    public void GenerateOutputFileName_UsesRenamedFileName(ClimateVariable variable, string newName)
+    {
+        // Setup initial conditions and expectations.
+        CordexDataset dataset = CreateDataset();
+        VariableInfo metadata = dataset.GetVariableInfo(variable);
+        VariableInfo newMetadata = new VariableInfo(newName, metadata.Units);
+        Func<string, string> prefix = name => $"{name}_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day";
+        string expected = $"{prefix(newName)}_19600101-19741231.nc";
+
+        // Setup test harness.
+        using TempDirectory directory = CreateTempFiles(dataset, variable, 15, prefix(metadata.Name));
+
+        string actual = dataset.GenerateOutputFileName(variable, newMetadata);
+
         Assert.Equal(expected, actual);
     }
 
@@ -236,7 +260,7 @@ public class CordexDatasetTests : IDisposable
     public void GenerateOutputFileName_ThrowsWithoutInputFiles()
     {
         CordexDataset dataset = CreateDataset();
-        Assert.Throws<InvalidOperationException>(() => dataset.GenerateOutputFileName(ClimateVariable.Precipitation));
+        Assert.Throws<InvalidOperationException>(() => dataset.GenerateOutputFileName(ClimateVariable.Precipitation, dataset.GetVariableInfo(ClimateVariable.Precipitation)));
     }
 
     [Theory]
@@ -251,7 +275,7 @@ public class CordexDatasetTests : IDisposable
         using TempDirectory directory = new TempDirectory(dataset.GetInputFilesDirectory(variable));
         File.Create(Path.Combine(directory.AbsolutePath, fileName)).Dispose();
 
-        ArgumentException ex = Assert.Throws<ArgumentException>(() => dataset.GenerateOutputFileName(variable));
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => dataset.GenerateOutputFileName(variable, dataset.GetVariableInfo(variable)));
         Assert.Contains("date", ex.Message);
     }
 

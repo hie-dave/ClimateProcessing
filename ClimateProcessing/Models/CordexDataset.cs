@@ -217,7 +217,7 @@ public class CordexDataset : IClimateDataset
     public string DatasetName => $"{domain.ToDomainId()}_{gcm.ToGcmId()}_{experiment.ToExperimentId()}_{gcm.GetVariantLabel()}_{institution.ToInstitutionId()}_{source.ToSourceId()}_{versionRealisation.ToVersionId()}_{frequency.ToFrequencyId()}";
 
     /// <inheritdoc />
-    public string GenerateOutputFileName(ClimateVariable variable)
+    public string GenerateOutputFileName(ClimateVariable variable, VariableInfo metadata)
     {
         // Get the first input file for this variable to use as a pattern.
         List<string> inputFiles = GetInputFiles(variable).ToList();
@@ -234,6 +234,14 @@ public class CordexDataset : IClimateDataset
         // Extract the pattern before the date range.
         // rsds_AUST-05i_ACCESS-CM2_historical_r4i1p1f1_BOM_BARPA-R_v1-r1_day_19600101-19601231.nc
         string prefix = string.Join("_", firstFile.Split('_').TakeWhile(p => !p.Contains(".nc")));
+
+        // Ensure that the variable name is correct.
+        string inName = GetVariableInfo(variable).Name;
+        string outName = metadata.Name;
+
+        // The file name starts with $"{varName}_".
+        if (inName != outName)
+            prefix = prefix.ReplaceFirst($"{inName}_", $"{outName}_");
 
         // Add the date range and extension.
         return $"{prefix}_{startDate:yyyyMMdd}-{endDate:yyyyMMdd}.nc";
@@ -384,7 +392,7 @@ public class CordexDataset : IClimateDataset
         ClimateVariable dependency,
         PathType pathType)
     {
-        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType);
+        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType, context.VariableManager);
         template = Path.GetFileName(template);
 
         string varName = context.VariableManager.GetOutputRequirements(variable).Name;

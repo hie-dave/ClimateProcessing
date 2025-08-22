@@ -62,9 +62,9 @@ public class MeanProcessorTests
 
         // Mock path manager
         Mock<IPathManager> mockPathManager = new Mock<IPathManager>();
-        mockPathManager.Setup(pm => pm.GetDatasetFileName(mockDataset.Object, dependencies[0], PathType.Working))
+        mockPathManager.Setup(pm => pm.GetDatasetFileName(mockDataset.Object, dependencies[0], PathType.Working, It.IsAny<IClimateVariableManager>()))
             .Returns(inputFiles[0]);
-        mockPathManager.Setup(pm => pm.GetDatasetFileName(mockDataset.Object, dependencies[1], PathType.Working))
+        mockPathManager.Setup(pm => pm.GetDatasetFileName(mockDataset.Object, dependencies[1], PathType.Working, It.IsAny<IClimateVariableManager>()))
             .Returns(inputFiles[1]);
         mockPathManager.Setup(pm => pm.GetDatasetPath(mockDataset.Object, PathType.Working))
             .Returns(datasetPath);
@@ -153,7 +153,7 @@ public class MeanProcessorTests
         // Mock path manager
         string inputFileName = "/path/to/file.nc";
         Mock<IPathManager> mockPathManager = new Mock<IPathManager>();
-        mockPathManager.Setup(pm => pm.GetDatasetFileName(It.IsAny<IClimateDataset>(), It.IsAny<ClimateVariable>(), PathType.Working))
+        mockPathManager.Setup(pm => pm.GetDatasetFileName(It.IsAny<IClimateDataset>(), It.IsAny<ClimateVariable>(), PathType.Working, It.IsAny<IClimateVariableManager>()))
             .Returns(inputFileName);
         mockPathManager.Setup(pm => pm.GetDatasetPath(It.IsAny<IClimateDataset>(), PathType.Working))
             .Returns("/path/to");

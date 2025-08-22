@@ -51,7 +51,7 @@ public class MeanProcessor : IVariableProcessor
     /// <inheritdoc/>
     public async Task<IReadOnlyList<Job>> CreateJobsAsync(IClimateDataset dataset, IJobCreationContext context)
     {
-        IEnumerable<string> inputFiles = dependencies.Select(x => context.PathManager.GetDatasetFileName(dataset, x, PathType.Working));
+        IEnumerable<string> inputFiles = dependencies.Select(x => context.PathManager.GetDatasetFileName(dataset, x, PathType.Working, context.VariableManager));
         string outputDirectory = context.PathManager.GetDatasetPath(dataset, PathType.Working);
         string outputFile = Path.Combine(outputDirectory, outputFileName);
 

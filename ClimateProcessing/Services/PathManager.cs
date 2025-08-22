@@ -94,11 +94,16 @@ public class PathManager : IPathManager
     }
 
     /// <inheritdoc />
-    public string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType pathType)
+    public string GetDatasetFileName(
+        IClimateDataset dataset,
+        ClimateVariable variable,
+        PathType pathType,
+        IClimateVariableManager variableManager)
     {
         string directory = GetDatasetPath(dataset, pathType);
         Directory.CreateDirectory(directory);
-        string fileName = dataset.GenerateOutputFileName(variable);
+        VariableInfo metadata = variableManager.GetOutputRequirements(variable);
+        string fileName = dataset.GenerateOutputFileName(variable, metadata);
         return Path.Combine(directory, fileName);
     }
 

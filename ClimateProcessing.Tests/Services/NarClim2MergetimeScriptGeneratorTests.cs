@@ -61,7 +61,7 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
             rcm,
             frequency);
         mockDataset.CallBase = true;
-        mockDataset.Setup(x => x.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
+        mockDataset.Setup(x => x.GenerateOutputFileName(It.IsAny<ClimateVariable>(), It.IsAny<VariableInfo>()))
             .Returns(outputFileName);
         return mockDataset;
     }

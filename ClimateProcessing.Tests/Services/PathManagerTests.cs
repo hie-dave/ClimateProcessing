@@ -60,10 +60,13 @@ public class PathManagerTests : IDisposable
         const string datasetDir = "test_dataset";
         const string fileName = "test_file.nc";
         mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
-        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
+        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>(), It.IsAny<VariableInfo>()))
             .Returns(fileName);
+        Mock<IClimateVariableManager> mockVariableManager = new();
+        mockVariableManager.Setup(v => v.GetOutputRequirements(It.IsAny<ClimateVariable>()))
+            .Returns(new VariableInfo("precipitation", "mm"));
 
-        string result = pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output);
+        string result = pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
 
         string expectedPath = Path.Combine(outputPath, "output", datasetDir, fileName);
         Assert.Equal(expectedPath, result);

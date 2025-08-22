@@ -37,8 +37,9 @@ public interface IClimateDataset
     /// Get the path to the output file for a given variable.
     /// </summary>
     /// <param name="variable">The variable.</param>
+    /// <param name="metadata">The output metadata of the variable.</param>
     /// <returns>The path to the output file.</returns>
-    string GenerateOutputFileName(ClimateVariable variable);
+    string GenerateOutputFileName(ClimateVariable variable, VariableInfo metadata);
 
     /// <summary>
     /// Get a non-rooted (ie relative) path to the output directory. This will

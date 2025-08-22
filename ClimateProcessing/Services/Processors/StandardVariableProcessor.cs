@@ -93,7 +93,7 @@ public class StandardVariableProcessor : IVariableProcessor
         // user wants to rename the variable (the output file name will contain
         // the original variable name). It's not a huge problem but would be
         // better to fix.
-        string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working);
+        string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working, context.VariableManager);
 
         // Sanitise - e.g. /tmp/./x -> /tmp/x
         outFile = Path.GetFullPath(outFile);
@@ -154,8 +154,8 @@ public class StandardVariableProcessor : IVariableProcessor
         VariableInfo varInfo = dataset.GetVariableInfo(TargetVariable);
 
         string jobName = GetJobName("rechunk", varInfo, dataset);
-        string inFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working);
-        string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Output);
+        string inFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working, context.VariableManager);
+        string outFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Output, context.VariableManager);
 
         // TODO: this will prevent early cleanup of resources in non-dave
         // versions, where we don't actually calculate VPD.
