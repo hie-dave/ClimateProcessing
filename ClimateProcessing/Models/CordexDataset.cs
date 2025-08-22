@@ -388,7 +388,7 @@ public class CordexDataset : IClimateDataset
         template = Path.GetFileName(template);
 
         string varName = context.VariableManager.GetOutputRequirements(variable).Name;
-        string depName = context.VariableManager.GetOutputRequirements(dependency).Name;
+        string depName = GetVariableInfo(dependency).Name;
         return template.ReplaceFirst($"{depName}_", $"{varName}_");
     }
 }
