@@ -95,7 +95,7 @@ public class RechunkProcessorDecorator : IVariableProcessor
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([inFile, outFile]);
 
-        await context.PBSHeavyweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSHeavyweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         RechunkOptions options = new(
             inFile,

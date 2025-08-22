@@ -63,7 +63,7 @@ public class PBSWriterTests : IDisposable
         PBSWriter generator = new(config, pathManager);
 
         // Act
-        await generator.WritePBSHeader(fileWriterMock.Object, jobName, Array.Empty<PBSStorageDirective>());
+        await generator.WriteHeaderAsync(fileWriterMock.Object, jobName, Array.Empty<PBSStorageDirective>());
         string result = writer.ToString();
 
         // Assert
@@ -130,7 +130,7 @@ public class PBSWriterTests : IDisposable
             PBSStorageHelper.GetStorageDirectives(filePaths);
 
         // Act
-        await generator.WritePBSHeader(fileWriterMock.Object, "test_job", directives);
+        await generator.WriteHeaderAsync(fileWriterMock.Object, "test_job", directives);
         string result = writer.ToString();
 
         // Assert
@@ -192,7 +192,7 @@ public class PBSWriterTests : IDisposable
         PathManager pathManager = new PathManager(outputDirectory);
         PBSWriter generator = new(config, pathManager);
 
-        await generator.WritePBSHeader(fileWriterMock.Object, "test_job", Array.Empty<PBSStorageDirective>());
+        await generator.WriteHeaderAsync(fileWriterMock.Object, "test_job", Array.Empty<PBSStorageDirective>());
         string result = writer.ToString();
 
         string expectedDirective = $"#PBS -m {expected}";

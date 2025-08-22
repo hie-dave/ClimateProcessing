@@ -21,6 +21,7 @@
     previously defined for the relative humidity variables (e.g. hursmin)
 - Add a test to ensure that for *all* defined ClimateVariable values, we can get
   output requirements (e.g. name, units, agg. method, etc)
+- Ensure in MeanProcessor's equation file, all lines end in semicolon
 
 ### Cordex Dataset tests
 

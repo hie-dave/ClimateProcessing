@@ -1,5 +1,4 @@
 using ClimateProcessing.Models;
-using ClimateProcessing.Constants;
 using ClimateProcessing.Configuration;
 
 namespace ClimateProcessing.Services;
@@ -7,7 +6,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Handles generation of PBS-specific script content and headers.
 /// </summary>
-public class PBSWriter
+public class PBSWriter : IScriptHeaderWriter
 {
     private readonly PBSConfig config;
     private readonly IPathManager pathManager;
@@ -28,7 +27,7 @@ public class PBSWriter
     /// <param name="writer">The text writer to which the header will be written.</param>
     /// <param name="jobName">The job name.</param>
     /// <param name="storageDirectives">The storage directives required by the job.</param>
-    public async Task WritePBSHeader(
+    public async Task WriteHeaderAsync(
         IFileWriter writer,
         string jobName,
         IEnumerable<PBSStorageDirective> storageDirectives)

@@ -110,7 +110,7 @@ public class StandardVariableProcessor : IVariableProcessor
         // This should be unnecessary at this point.
         string jobName = GetJobName("mergetime", inputMetadata, dataset);
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
-        await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         MergetimeOptions opts = new MergetimeOptions(
             inDir,
@@ -164,7 +164,7 @@ public class StandardVariableProcessor : IVariableProcessor
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([inFile, outFile]);
 
-        await context.PBSHeavyweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSHeavyweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         RechunkOptions options = new(
             inFile,

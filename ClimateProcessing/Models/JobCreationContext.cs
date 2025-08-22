@@ -20,10 +20,10 @@ public class JobCreationContext : IJobCreationContext
     public IClimateVariableManager VariableManager { get; }
 
     /// <inheritdoc />
-    public PBSWriter PBSLightweight { get; }
+    public IScriptHeaderWriter PBSLightweight { get; }
 
     /// <inheritdoc />
-    public PBSWriter PBSHeavyweight { get; }
+    public IScriptHeaderWriter PBSHeavyweight { get; }
 
     /// <inheritdoc />
     public IRemappingService Remapper { get; }
@@ -42,8 +42,8 @@ public class JobCreationContext : IJobCreationContext
         IPathManager pathManager,
         IFileWriterFactory fileWriterFactory,
         IClimateVariableManager variableManager,
-        PBSWriter pbsLightweight,
-        PBSWriter pbsHeavyweight,
+        IScriptHeaderWriter pbsLightweight,
+        IScriptHeaderWriter pbsHeavyweight,
         IRemappingService remapper,
         IDependencyResolver dependencyResolver)
     {
