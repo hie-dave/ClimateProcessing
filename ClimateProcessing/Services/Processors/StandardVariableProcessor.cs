@@ -62,6 +62,7 @@ public class StandardVariableProcessor : IVariableProcessor
         this.rechunkGenerator = rechunkingGenerator;
     }
 
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Job>> CreateJobsAsync(
         IClimateDataset dataset,
         IJobCreationContext context)

@@ -1,7 +1,10 @@
+using System.Reflection;
+using System.Threading.Tasks;
 using ClimateProcessing.Configuration;
 using ClimateProcessing.Models;
 using ClimateProcessing.Models.Cordex;
 using ClimateProcessing.Services;
+using ClimateProcessing.Services.Processors;
 using ClimateProcessing.Tests.Helpers;
 using ClimateProcessing.Tests.Mocks;
 using Moq;
@@ -271,6 +274,43 @@ public class CordexDatasetTests : IDisposable
         Assert.Contains(gcm.ToGcmId(), dataset.DatasetName);
         Assert.Contains(experiment.ToExperimentId(), dataset.DatasetName);
         Assert.Contains(source.ToSourceId(), dataset.DatasetName);
+    }
+
+    [Fact]
+    public void EnsureOutputFiles_UseRenamedVariableNames()
+    {
+        IJobCreationContext context = CreateContext();
+        CordexDataset dataset = CreateDataset();
+
+        // Setup a test harness consisting of a few input files.
+        const int nfiles = 16;
+        CreateTempFiles(dataset, ClimateVariable.MinTemperature, "tasmin", nfiles);
+        CreateTempFiles(dataset, ClimateVariable.MaxTemperature, "tasmax", nfiles);
+        CreateTempFiles(dataset, ClimateVariable.MinRelativeHumidity, "hursmin", nfiles);
+        CreateTempFiles(dataset, ClimateVariable.MaxRelativeHumidity, "hursmax", nfiles);
+
+        IEnumerable<IVariableProcessor> processors = dataset.GetProcessors(context);
+
+        // TODO: find a better way to test this.
+        string tempOutFile = GetMeanProcessorOutputFileName(ClimateVariable.Temperature, processors);
+        Assert.Equal("tas_19600101-19751231.nc", tempOutFile);
+
+        string hursOutFile = GetMeanProcessorOutputFileName(ClimateVariable.RelativeHumidity, processors);
+        Assert.Equal("hurs_19600101-19751231.nc", hursOutFile);
+    }
+
+    private static string GetMeanProcessorOutputFileName(ClimateVariable variable, IEnumerable<IVariableProcessor> processors)
+    {
+        // fixme - not ideal.
+        RechunkProcessorDecorator rechunker = processors.OfType<RechunkProcessorDecorator>().First(x => x.TargetVariable == variable);
+        MeanProcessor innerProcessor = GetField<MeanProcessor>(rechunker, "innerProcessor");
+        return GetField<string>(innerProcessor, "outputFileName");
+    }
+
+    private static T GetField<T>(object obj, string fieldName)
+    {
+        FieldInfo field = obj.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return (T)field.GetValue(obj)!;
     }
 
     private TempDirectory CreateTempFiles(IClimateDataset dataset, ClimateVariable variable, string prefix, int nfiles)

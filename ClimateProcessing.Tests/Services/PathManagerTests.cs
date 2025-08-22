@@ -7,24 +7,24 @@ namespace ClimateProcessing.Tests.Services;
 
 public class PathManagerTests : IDisposable
 {
-    private readonly string _testOutputPath;
-    private readonly PathManager _pathManager;
-    private readonly Mock<IClimateDataset> _mockDataset;
+    private readonly string outputPath;
+    private readonly TempDirectory tempDirectory;
+
+    private readonly PathManager pathManager;
+    private readonly Mock<IClimateDataset> mockDataset;
 
     public PathManagerTests()
     {
-        _testOutputPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        _pathManager = new PathManager(_testOutputPath);
-        _mockDataset = new Mock<IClimateDataset>();
-        Directory.CreateDirectory(_testOutputPath);
+        tempDirectory = TempDirectory.Create();
+        outputPath = tempDirectory.AbsolutePath;
+
+        pathManager = new PathManager(outputPath);
+        mockDataset = new Mock<IClimateDataset>();
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_testOutputPath))
-        {
-            Directory.Delete(_testOutputPath, true);
-        }
+        tempDirectory.Dispose();
     }
 
     [Theory]
@@ -33,8 +33,8 @@ public class PathManagerTests : IDisposable
     [InlineData(PathType.Stream)]
     public void GetDatasetPath_ThrowsForInvalidPathTypes(PathType pathType)
     {
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns("test_dataset");
-        var ex = Assert.Throws<ArgumentException>(() => _pathManager.GetDatasetPath(_mockDataset.Object, pathType));
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns("test_dataset");
+        var ex = Assert.Throws<ArgumentException>(() => pathManager.GetDatasetPath(mockDataset.Object, pathType));
         Assert.Contains("not valid at the dataset-level", ex.Message);
     }
 
@@ -44,12 +44,12 @@ public class PathManagerTests : IDisposable
     public void GetDatasetPath_ReturnsCorrectPathForValidTypes(PathType pathType)
     {
         const string datasetDir = "test_dataset";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
 
-        string result = _pathManager.GetDatasetPath(_mockDataset.Object, pathType);
+        string result = pathManager.GetDatasetPath(mockDataset.Object, pathType);
 
         string expectedBaseDir = pathType == PathType.Output ? "output" : "tmp";
-        string expectedPath = Path.Combine(_testOutputPath, expectedBaseDir, datasetDir);
+        string expectedPath = Path.Combine(outputPath, expectedBaseDir, datasetDir);
         Assert.Equal(expectedPath, result);
         Assert.True(Directory.Exists(result));
     }
@@ -59,13 +59,13 @@ public class PathManagerTests : IDisposable
     {
         const string datasetDir = "test_dataset";
         const string fileName = "test_file.nc";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
-        _mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
+        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
             .Returns(fileName);
 
-        string result = _pathManager.GetDatasetFileName(_mockDataset.Object, ClimateVariable.Precipitation, PathType.Output);
+        string result = pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output);
 
-        string expectedPath = Path.Combine(_testOutputPath, "output", datasetDir, fileName);
+        string expectedPath = Path.Combine(outputPath, "output", datasetDir, fileName);
         Assert.Equal(expectedPath, result);
         Assert.True(Directory.Exists(Path.GetDirectoryName(result)));
     }
@@ -73,9 +73,9 @@ public class PathManagerTests : IDisposable
     [Fact]
     public void GetChecksumFilePath_ReturnsCorrectPath()
     {
-        string result = _pathManager.GetChecksumFilePath();
+        string result = pathManager.GetChecksumFilePath();
 
-        string expectedPath = Path.Combine(_testOutputPath, "output", "sha512sums.txt");
+        string expectedPath = Path.Combine(outputPath, "output", "sha512sums.txt");
         Assert.Equal(expectedPath, result);
     }
 
@@ -83,25 +83,25 @@ public class PathManagerTests : IDisposable
     public void CreateDirectoryTree_CreatesAllRequiredDirectories()
     {
         const string datasetDir = "test_dataset";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
 
-        _pathManager.CreateDirectoryTree(_mockDataset.Object);
+        pathManager.CreateDirectoryTree(mockDataset.Object);
 
         // Check top-level directories
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "logs")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "scripts")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "streams")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "output")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "tmp")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "logs")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "scripts")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "streams")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "output")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "tmp")));
 
         // Check dataset-specific directories
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "output", datasetDir)));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "tmp", datasetDir)));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "output", datasetDir)));
+        Assert.True(Directory.Exists(Path.Combine(outputPath, "tmp", datasetDir)));
     }
 
     [Fact]
     public void GetBasePath_ThrowsForInvalidPathType()
     {
-        Assert.Throws<ArgumentException>(() => _pathManager.GetBasePath((PathType)123));
+        Assert.Throws<ArgumentException>(() => pathManager.GetBasePath((PathType)123));
     }
 }
