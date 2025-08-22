@@ -362,12 +362,12 @@ public class CordexDataset : IClimateDataset
 
         // Calculate temperature from min and max.
         IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
-        string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature, PathType.Working);
+        string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
         MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
 
         // Calculate relative humidity from min and max.
         MeanProcessor relhumCalculator = new MeanProcessor(
-            GenerateFileName(context, ClimateVariable.RelativeHumidity, ClimateVariable.MinRelativeHumidity, PathType.Working),
+            GenerateFileName(context, ClimateVariable.RelativeHumidity, ClimateVariable.MinRelativeHumidity),
             ClimateVariable.RelativeHumidity,
             [ClimateVariable.MinRelativeHumidity, ClimateVariable.MaxRelativeHumidity]);
 
@@ -389,14 +389,18 @@ public class CordexDataset : IClimateDataset
     private string GenerateFileName(
         IJobCreationContext context,
         ClimateVariable variable,
-        ClimateVariable dependency,
-        PathType pathType)
+        ClimateVariable dependency)
     {
-        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType, context.VariableManager);
+        // Generate an output file name using the input metadata. This ensures
+        // that the name of the file is consistent with the name of the
+        // dependency in the input dataset. We can then replace this name with
+        // the output name of the target variable.
+        VariableInfo metadata = GetVariableInfo(dependency);
+        string template = GenerateOutputFileName(dependency, metadata);
         template = Path.GetFileName(template);
 
         string varName = context.VariableManager.GetOutputRequirements(variable).Name;
-        string depName = GetVariableInfo(dependency).Name;
+        string depName = metadata.Name;
         return template.ReplaceFirst($"{depName}_", $"{varName}_");
     }
 }

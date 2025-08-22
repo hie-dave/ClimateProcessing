@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 using ClimateProcessing.Configuration;
@@ -319,10 +320,10 @@ public class CordexDatasetTests : IDisposable
 
         // TODO: find a better way to test this.
         string tempOutFile = GetMeanProcessorOutputFileName(ClimateVariable.Temperature, processors);
-        Assert.Equal("tas_19600101-19751231.nc", tempOutFile);
+        Assert.Equal("tas_xyz_19600101-19751231.nc", tempOutFile);
 
         string hursOutFile = GetMeanProcessorOutputFileName(ClimateVariable.RelativeHumidity, processors);
-        Assert.Equal("hurs_19600101-19751231.nc", hursOutFile);
+        Assert.Equal("hurs_xyz_19600101-19751231.nc", hursOutFile);
     }
 
     private static string GetMeanProcessorOutputFileName(ClimateVariable variable, IEnumerable<IVariableProcessor> processors)
@@ -341,7 +342,7 @@ public class CordexDatasetTests : IDisposable
 
     private TempDirectory CreateTempFiles(IClimateDataset dataset, ClimateVariable variable, int nfiles, string? prefix = null)
     {
-        prefix ??= dataset.GetVariableInfo(variable).Name;
+        prefix ??= $"{dataset.GetVariableInfo(variable).Name}_xyz";
         DateTime baseDate = new DateTime(1960, 1, 1);
         TempDirectory directory = new TempDirectory(dataset.GetInputFilesDirectory(variable));
         for (int i = 0; i < nfiles; i++)
