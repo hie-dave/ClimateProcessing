@@ -10,7 +10,6 @@ namespace ClimateProcessing.Tests.Mocks;
 internal class DynamicMockDataset : IClimateDataset
 {
     private readonly string inputPath;
-    private readonly string outputPath;
     private List<IVariableProcessor> processors = [];
     private readonly Dictionary<ClimateVariable, (string Name, string Units)> _variableInfo = new()
     {
@@ -27,10 +26,13 @@ internal class DynamicMockDataset : IClimateDataset
 
     public string DatasetName => GetType().Name;
 
+    public DynamicMockDataset(string inputPath) : this(inputPath, null!)
+    {
+    }
+
     public DynamicMockDataset(string inputPath, string outputPath)
     {
         this.inputPath = inputPath;
-        this.outputPath = outputPath;
     }
 
     public void SetVariableInfo(ClimateVariable variable, string name, string units)
@@ -52,7 +54,7 @@ internal class DynamicMockDataset : IClimateDataset
             .Select(f => Path.Combine(inputDirectory, f));
     }
 
-    VariableInfo IClimateDataset.GetVariableInfo(ClimateVariable variable)
+    public VariableInfo GetVariableInfo(ClimateVariable variable)
     {
         (string name, string units) = _variableInfo[variable];
         return new VariableInfo(name, units);

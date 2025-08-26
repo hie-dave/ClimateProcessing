@@ -7,24 +7,28 @@ namespace ClimateProcessing.Tests.Services;
 
 public class PathManagerTests : IDisposable
 {
-    private readonly string _testOutputPath;
+    private readonly TempDirectory outputPath;
+    private readonly TempDirectory dataPath;
     private readonly PathManager _pathManager;
-    private readonly Mock<IClimateDataset> _mockDataset;
+    private readonly Mock<IClimateDataset> mockDataset;
 
     public PathManagerTests()
     {
-        _testOutputPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        _pathManager = new PathManager(_testOutputPath);
-        _mockDataset = new Mock<IClimateDataset>();
-        Directory.CreateDirectory(_testOutputPath);
+        outputPath = TempDirectory.Create();
+        dataPath = TempDirectory.Create();
+
+        // Setup path manager.
+        _pathManager = new PathManager(outputPath.AbsolutePath);
+
+        // Setup some dependencies.
+        mockDataset = new Mock<IClimateDataset>();
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns(dataPath.AbsolutePath);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_testOutputPath))
-        {
-            Directory.Delete(_testOutputPath, true);
-        }
+        outputPath.Dispose();
+        dataPath.Dispose();
     }
 
     [Theory]
@@ -33,23 +37,18 @@ public class PathManagerTests : IDisposable
     [InlineData(PathType.Stream)]
     public void GetDatasetPath_ThrowsForInvalidPathTypes(PathType pathType)
     {
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns("test_dataset");
-        var ex = Assert.Throws<ArgumentException>(() => _pathManager.GetDatasetPath(_mockDataset.Object, pathType));
+        var ex = Assert.Throws<ArgumentException>(() => _pathManager.GetDatasetPath(mockDataset.Object, pathType));
         Assert.Contains("not valid at the dataset-level", ex.Message);
     }
 
     [Theory]
-    [InlineData(PathType.Output)]
-    [InlineData(PathType.Working)]
-    public void GetDatasetPath_ReturnsCorrectPathForValidTypes(PathType pathType)
+    [InlineData(PathType.Output, "output")]
+    [InlineData(PathType.Working, "tmp")]
+    public void GetDatasetPath_ReturnsCorrectPathForValidTypes(PathType pathType, string expectedBaseDir)
     {
-        const string datasetDir = "test_dataset";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
+        string result = _pathManager.GetDatasetPath(mockDataset.Object, pathType);
 
-        string result = _pathManager.GetDatasetPath(_mockDataset.Object, pathType);
-
-        string expectedBaseDir = pathType == PathType.Output ? "output" : "tmp";
-        string expectedPath = Path.Combine(_testOutputPath, expectedBaseDir, datasetDir);
+        string expectedPath = Path.Combine(outputPath.AbsolutePath, expectedBaseDir, dataPath.AbsolutePath);
         Assert.Equal(expectedPath, result);
         Assert.True(Directory.Exists(result));
     }
@@ -57,17 +56,42 @@ public class PathManagerTests : IDisposable
     [Fact]
     public void GetDatasetFileName_ReturnsCorrectPath()
     {
-        const string datasetDir = "test_dataset";
         const string fileName = "test_file.nc";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
-        _mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
+        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
             .Returns(fileName);
+        mockDataset.Setup(d => d.GetVariableInfo(It.IsAny<ClimateVariable>()))
+            .Returns(new VariableInfo(fileName, "units"));
+        Mock<IClimateVariableManager> mockVariableManager = new Mock<IClimateVariableManager>();
+        mockVariableManager.Setup(v => v.GetOutputRequirements(It.IsAny<ClimateVariable>()))
+            .Returns(new VariableInfo(fileName, "units"));
 
-        string result = _pathManager.GetDatasetFileName(_mockDataset.Object, ClimateVariable.Precipitation, PathType.Output);
+        string result = _pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
 
-        string expectedPath = Path.Combine(_testOutputPath, "output", datasetDir, fileName);
+        string expectedPath = Path.Combine(outputPath.AbsolutePath, "output", dataPath.AbsolutePath, fileName);
         Assert.Equal(expectedPath, result);
         Assert.True(Directory.Exists(Path.GetDirectoryName(result)));
+    }
+
+    [Fact]
+    public void GetDatasetFileName_RenamesVariableIfNecessary()
+    {
+        const string oldName = "prAdjust";
+        const string newName = "pr";
+
+        mockDataset.Setup(d => d.GetVariableInfo(ClimateVariable.Precipitation))
+            .Returns(new VariableInfo(oldName, "units"));
+        mockDataset.Setup(d => d.GenerateOutputFileName(ClimateVariable.Precipitation))
+            .Returns($"{oldName}.nc");
+
+        Mock<IClimateVariableManager> mockVariableManager = new Mock<IClimateVariableManager>();
+        mockVariableManager.Setup(v => v.GetOutputRequirements(ClimateVariable.Precipitation))
+            .Returns(new VariableInfo(newName, "units"));
+
+        string result = _pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
+        string fileName = Path.GetFileName(result);
+
+        Assert.DoesNotContain(oldName, result);
+        Assert.Contains(newName, result); // TODO: startsWith?
     }
 
     [Fact]
@@ -75,7 +99,7 @@ public class PathManagerTests : IDisposable
     {
         string result = _pathManager.GetChecksumFilePath();
 
-        string expectedPath = Path.Combine(_testOutputPath, "output", "sha512sums.txt");
+        string expectedPath = Path.Combine(outputPath.AbsolutePath, "output", "sha512sums.txt");
         Assert.Equal(expectedPath, result);
     }
 
@@ -83,20 +107,20 @@ public class PathManagerTests : IDisposable
     public void CreateDirectoryTree_CreatesAllRequiredDirectories()
     {
         const string datasetDir = "test_dataset";
-        _mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
+        mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
 
-        _pathManager.CreateDirectoryTree(_mockDataset.Object);
+        _pathManager.CreateDirectoryTree(mockDataset.Object);
 
         // Check top-level directories
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "logs")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "scripts")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "streams")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "output")));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "tmp")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "logs")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "scripts")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "streams")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "output")));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "tmp")));
 
         // Check dataset-specific directories
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "output", datasetDir)));
-        Assert.True(Directory.Exists(Path.Combine(_testOutputPath, "tmp", datasetDir)));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "output", dataPath.AbsolutePath)));
+        Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "tmp", dataPath.AbsolutePath)));
     }
 
     [Fact]

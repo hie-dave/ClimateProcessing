@@ -65,4 +65,55 @@ public class ClimateVariableManagerTests
         ArgumentException ex = Assert.Throws<ArgumentException>(() => manager.GetOutputRequirements(variable));
         Assert.Contains("variable", ex.Message);
     }
+
+    [Theory]
+    [InlineData(ModelVersion.Trunk)]
+    [InlineData(ModelVersion.Dave)]
+    public void GetAggregationMethod_DoesNotThrowForValidVariable(ModelVersion version)
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(version);
+        foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
+        {
+            Exception ex = Record.Exception(() => manager.GetAggregationMethod(variable));
+            Assert.Null(ex);
+        }
+    }
+
+    [Fact]
+    public void GetAggregationMethod_ThrowsForInvalidVariable()
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(ModelVersion.Trunk);
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => manager.GetAggregationMethod((ClimateVariable)1001));
+        Assert.Contains("variable", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(ModelVersion.Trunk)]
+    public void GetRequirements_DoesNotThrowForValidVariable(ModelVersion version)
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(version);
+        foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
+        {
+            // Trunk accepts all (current) variables except VPD.
+            if (version == ModelVersion.Trunk && variable == ClimateVariable.Vpd)
+                continue;
+
+            Exception ex = Record.Exception(() => manager.GetOutputRequirements(variable));
+            Assert.Null(ex);
+        }
+    }
+
+    [Theory]
+    [InlineData(ClimateVariable.Temperature)]
+    [InlineData(ClimateVariable.Precipitation)]
+    [InlineData(ClimateVariable.ShortwaveRadiation)]
+    [InlineData(ClimateVariable.SpecificHumidity)]
+    [InlineData(ClimateVariable.SurfacePressure)]
+    [InlineData(ClimateVariable.WindSpeed)]
+    public void GetDaveRequirements_DoesNotThrowForValidVariable(ClimateVariable variable)
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(ModelVersion.Dave);
+        Exception ex = Record.Exception(() => manager.GetOutputRequirements(variable));
+        Assert.Null(ex);
+    }
 }

@@ -56,11 +56,11 @@ public class VpdCalculator : IVariableProcessor
         string jobName = $"calc_vpd_{dataset.DatasetName}";
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
 
-        string humidityFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working);
-        string pressureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working);
-        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
+        string humidityFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SpecificHumidity, PathType.Working, context.VariableManager);
+        string pressureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.SurfacePressure, PathType.Working, context.VariableManager);
+        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working, context.VariableManager);
 
-        // Generate an output file name.
+        //, context.VariableManager Generate an output file name.
         string outFile = GetUnoptimisedVpdOutputFilePath(context, dataset);
 
         // Equation file is written to JobFS, so it will never require a storage
@@ -199,7 +199,7 @@ public class VpdCalculator : IVariableProcessor
     /// <returns>The output file path.</returns>
     public string GetUnoptimisedVpdOutputFilePath(IJobCreationContext context, IClimateDataset dataset)
     {
-        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working);
+        string temperatureFile = context.PathManager.GetDatasetFileName(dataset, ClimateVariable.Temperature, PathType.Working, context.VariableManager);
         return GetVpdFilePath(dataset, temperatureFile);
     }
 

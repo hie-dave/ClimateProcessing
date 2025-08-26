@@ -47,7 +47,7 @@ public class MockPathManager : IPathManager
         return checksumFilePath;
     }
 
-    public string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType type)
+    public string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType type, IClimateVariableManager variableManager)
     {
         return Path.Combine(GetDatasetPath(dataset, type), $"{Enum.GetName(variable)!}.nc");
     }

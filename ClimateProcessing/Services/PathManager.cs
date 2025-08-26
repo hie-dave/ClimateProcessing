@@ -1,3 +1,4 @@
+using ClimateProcessing.Extensions;
 using ClimateProcessing.Models;
 
 namespace ClimateProcessing.Services;
@@ -94,11 +95,21 @@ public class PathManager : IPathManager
     }
 
     /// <inheritdoc />
-    public string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType pathType)
+    public string GetDatasetFileName(
+        IClimateDataset dataset,
+        ClimateVariable variable,
+        PathType pathType,
+        IClimateVariableManager variableManager)
     {
         string directory = GetDatasetPath(dataset, pathType);
         Directory.CreateDirectory(directory);
         string fileName = dataset.GenerateOutputFileName(variable);
+
+        VariableInfo inputMetadata = dataset.GetVariableInfo(variable);
+        VariableInfo targetMetadata = variableManager.GetOutputRequirements(variable);
+        if (inputMetadata.Name != targetMetadata.Name)
+            fileName = fileName.ReplaceFirst(inputMetadata.Name, targetMetadata.Name);
+
         return Path.Combine(directory, fileName);
     }
 

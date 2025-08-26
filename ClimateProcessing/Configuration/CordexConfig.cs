@@ -38,12 +38,12 @@ public class CordexConfig : ProcessingConfig
         IEnumerable<CordexInstitution> institutions = GetInstitutions();
         IEnumerable<CordexSource> sources = GetSources();
 
-        return from activity in activities
-               from version in versions.Where(v => v.IsSupportedFor(activity))
-               from experiment in experiments
-               from gcm in gcms
-               from institution in institutions
-               from source in sources
+        return from activity in activities.Distinct()
+               from version in versions.Where(v => v.IsSupportedFor(activity)).Distinct()
+               from experiment in experiments.Distinct()
+               from gcm in gcms.Distinct()
+               from institution in institutions.Distinct()
+               from source in sources.Distinct()
                select new CordexDataset(
                    basePath: InputDirectory,
                    activity: activity,

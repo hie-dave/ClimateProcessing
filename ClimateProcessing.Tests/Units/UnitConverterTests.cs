@@ -8,8 +8,8 @@ public class UnitConverterTests
     [Theory]
     [InlineData("W/m2", "W/m2", false, false)]  // Exact match
     [InlineData("W/m2", "W m-2", false, true)]  // Different notation, same meaning
-    [InlineData("K", "degC", true, true)]       // Requires conversion, no timestep
-    [InlineData("kg m-2 s-1", "mm", true, true)] // Requires conversion with timestep
+    [InlineData("K", "degC", true, true)]       // Requires conversion
+    [InlineData("kg m-2 s-1", "mm", true, true)] // Requires conversion
     public void AnalyzeConversion_HandlesVariousUnitCombinations(
         string inputUnits,
         string targetUnits,
@@ -60,6 +60,10 @@ public class UnitConverterTests
     [InlineData("kg m-2 s-1", "mm", 1, "-mulc,3600")]   // Hourly accumulation
     [InlineData("mm", "mm", 6, "")] // No conversion required
     [InlineData("kPa", "Pa", 1, "-mulc,1000")]
+    [InlineData("degC", "K", 1, "-addc,273.15")]
+    [InlineData("mm d-1", "mm", 1, "-divc,24")] // mm/day -> mm/hr: divide by 24
+    [InlineData("mm d-1", "mm", 3, "-divc,8")] // mm/day -> mm/3hr: divide by 8
+    [InlineData("%", "1", 1, "-divc,100")]
     public void GenerateConversionExpression_GeneratesCorrectExpressions(
         string inputUnits,
         string targetUnits,

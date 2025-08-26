@@ -213,4 +213,60 @@ public class CordexEnumTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => CordexSourceExtensions.FromString("invalid"));
     }
+
+    [Theory]
+    [InlineData(CordexVersion.V1R1, "v1-r1")]
+    [InlineData(CordexVersion.MrnbcAgcd, "v1-r1-ACS-MRNBC-AGCDv1-1960-2022")]
+    [InlineData(CordexVersion.MrnbcBarra, "v1-r1-ACS-MRNBC-BARRAR2-1980-2022")]
+    [InlineData(CordexVersion.QmeAgcd, "v1-r1-ACS-QME-AGCDv1-1960-2022")]
+    [InlineData(CordexVersion.QmeBarra, "v1-r1-ACS-QME-BARRAR2-1980-2022")]
+    public void CordexVersion_ToVersionId_ReturnsCorrectValues(CordexVersion version, string expected)
+    {
+        Assert.Equal(expected, version.ToVersionId());
+    }
+
+    [Fact]
+    public void CordexVersion_ToVersionId_ThrowsOnInvalidValue()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CordexVersionExtensions.ToVersionId((CordexVersion)666));
+    }
+
+    [Theory]
+    [InlineData("v1-r1", CordexVersion.V1R1)]
+    [InlineData("v1-r1-ACS-MRNBC-AGCDv1-1960-2022", CordexVersion.MrnbcAgcd)]
+    [InlineData("v1-r1-ACS-MRNBC-BARRAR2-1980-2022", CordexVersion.MrnbcBarra)]
+    [InlineData("v1-r1-ACS-QME-AGCDv1-1960-2022", CordexVersion.QmeAgcd)]
+    [InlineData("v1-r1-ACS-QME-BARRAR2-1980-2022", CordexVersion.QmeBarra)]
+    public void CordexVersion_FromString_ReturnsCorrectEnum(string versionId, CordexVersion expected)
+    {
+        Assert.Equal(expected, CordexVersionExtensions.FromString(versionId));
+    }
+
+    [Fact]
+    public void CordexVersion_FromString_ThrowsOnInvalidValue()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CordexVersionExtensions.FromString("invalid"));
+    }
+
+    [Theory]
+    [InlineData(CordexVersion.V1R1, CordexActivity.DD, true)]
+    [InlineData(CordexVersion.MrnbcAgcd, CordexActivity.DD, false)]
+    [InlineData(CordexVersion.MrnbcBarra, CordexActivity.DD, false)]
+    [InlineData(CordexVersion.QmeAgcd, CordexActivity.DD, false)]
+    [InlineData(CordexVersion.QmeBarra, CordexActivity.DD, false)]
+    [InlineData(CordexVersion.V1R1, CordexActivity.BiasCorrected, false)]
+    [InlineData(CordexVersion.MrnbcAgcd, CordexActivity.BiasCorrected, true)]
+    [InlineData(CordexVersion.MrnbcBarra, CordexActivity.BiasCorrected, true)]
+    [InlineData(CordexVersion.QmeAgcd, CordexActivity.BiasCorrected, true)]
+    [InlineData(CordexVersion.QmeBarra, CordexActivity.BiasCorrected, true)]
+    public void CordexVersion_IsSupportedFor_ReturnsCorrectValues(CordexVersion version, CordexActivity activity, bool expected)
+    {
+        Assert.Equal(expected, CordexVersionExtensions.IsSupportedFor(version, activity));
+    }
+
+    [Fact]
+    public void CordexVersion_IsSupportedFor_ThrowsOnInvalidValue()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CordexVersionExtensions.IsSupportedFor((CordexVersion)666, CordexActivity.DD));
+    }
 }

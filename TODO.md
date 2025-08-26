@@ -11,16 +11,12 @@
   file paths in the temp directory. On some systems, this can be a directory
   which generates a PBS storage directive (e.g. /scratch/prj0/tmp), which causes
   the test to emit different output and therefore fail.
-- Test the new unit conversion behaviour
-  - mm d-1 -> mm
-  - degC -> K
-  - In general test the new func-based conversion expressions
-- Test aggregation methods for all variables
 - Why did we not get a test failure when generating cordex processing scripts?
   - There should have been an exception thrown because no aggregation method was
     previously defined for the relative humidity variables (e.g. hursmin)
-- Add a test to ensure that for *all* defined ClimateVariable values, we can get
-  output requirements (e.g. name, units, agg. method, etc)
+- Ensure that renamed variables are renamed in the file name as well
+- Ensure that variable renaming is reflected in the job names as well
+- Does StandardProcessor need to unpack data? Or do so conditionally?
 
 ### Cordex Dataset tests
 

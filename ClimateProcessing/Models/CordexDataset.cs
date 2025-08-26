@@ -370,8 +370,10 @@ public class CordexDataset : IClimateDataset
             new StandardVariableProcessor(ClimateVariable.MinTemperature),
             new StandardVariableProcessor(ClimateVariable.MaxTemperature),
             new RechunkProcessorDecorator(tempCalculator),
-            new StandardVariableProcessor(ClimateVariable.MinRelativeHumidity),
-            new StandardVariableProcessor(ClimateVariable.MaxRelativeHumidity),
+            // No need to rechunk min and max rel. humidity, as it's only an
+            // intermediate variable.
+            new MergetimeProcessor(ClimateVariable.MinRelativeHumidity),
+            new MergetimeProcessor(ClimateVariable.MaxRelativeHumidity),
             new RechunkProcessorDecorator(relhumCalculator),
             // air pressure not needed (as we have rel. humidity)
             // specific humidity not needed (as we have rel. humidity)
@@ -384,7 +386,7 @@ public class CordexDataset : IClimateDataset
         ClimateVariable dependency,
         PathType pathType)
     {
-        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType);
+        string template = context.PathManager.GetDatasetFileName(this, dependency, pathType, context.VariableManager);
         template = Path.GetFileName(template);
 
         string varName = context.VariableManager.GetOutputRequirements(variable).Name;

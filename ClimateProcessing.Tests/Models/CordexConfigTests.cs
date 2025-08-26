@@ -29,6 +29,121 @@ public class CordexConfigTests
     }
 
     [Fact]
+    public void GetVersions_WithNullVersions_ReturnsAllVersions()
+    {
+        CordexConfig config = new CordexConfig
+        {
+            InputDirectory = testInputDirectory,
+            Project = testProject
+        };
+
+        IEnumerable<CordexVersion> versions = config.GetVersions();
+        Assert.Equal(Enum.GetValues<CordexVersion>(), versions);
+    }
+
+    [Fact]
+    public void GetVersions_WithEmptyVersions_ReturnsAllVersions()
+    {
+        CordexConfig config = new CordexConfig
+        {
+            InputDirectory = testInputDirectory,
+            Project = testProject,
+            Versions = new List<string>()
+        };
+
+        IEnumerable<CordexVersion> versions = config.GetVersions();
+        Assert.Equal(Enum.GetValues<CordexVersion>(), versions);
+    }
+
+    [Fact]
+    public void Validate_SucceedsForValidConfig()
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+        config.Validate();
+    }
+
+    [Fact]
+    public void Validate_ThrowsForNonDailyTimestep()
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+        config.Version = ModelVersion.Dave;
+        config.InputTimeStepHours = 1; // Invalid
+        config.OutputTimeStepHours = 3;
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(config.Validate);
+        Assert.Contains("timestep", exception.Message);
+        Assert.Contains("CORDEX", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(CordexActivity.DD, CordexVersion.V1R1, CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexActivity.DD, CordexVersion.V1R1, CordexVersion.MrnbcBarra)]
+    [InlineData(CordexActivity.DD, CordexVersion.V1R1, CordexVersion.QmeAgcd)]
+    [InlineData(CordexActivity.DD, CordexVersion.V1R1, CordexVersion.QmeBarra)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.MrnbcBarra)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.QmeAgcd)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.QmeBarra)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.QmeBarra, CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexActivity.BiasCorrected, CordexVersion.V1R1, CordexVersion.QmeAgcd, CordexVersion.QmeBarra)]
+    public void Validate_ThrowsForUnusedVersion(CordexActivity activity, params CordexVersion[] versions)
+    {
+        // Generate a config with a version which is not supported by any
+        // activities.
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+        config.Activities = [activity.ToActivityId()];
+        config.Versions = versions.Select(v => v.ToVersionId()).ToArray();
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(config.Validate);
+        Assert.Contains("version", exception.Message);
+        Assert.Contains("not supported", exception.Message);
+    }
+
+    [Fact]
+    public void Validate_ThrowsForUnusedActivity()
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        // Use all activities
+        config.Activities = [];
+
+        // Use a single version - not all activities support this version.
+        config.Versions = [CordexVersion.V1R1.ToVersionId()];
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(config.Validate);
+        Assert.Contains("activity", exception.Message);
+        Assert.Contains("not supported", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(CordexVersion.V1R1)]
+    [InlineData(CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexVersion.MrnbcBarra)]
+    [InlineData(CordexVersion.QmeAgcd)]
+    [InlineData(CordexVersion.QmeBarra)]
+    [InlineData(CordexVersion.V1R1, CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexVersion.V1R1, CordexVersion.MrnbcAgcd, CordexVersion.MrnbcBarra)]
+    public void GetVersions_WithSpecificVersions_ReturnsSpecifiedVersions(params CordexVersion[] versions)
+    {
+        CordexConfig config = new CordexConfig
+        {
+            InputDirectory = testInputDirectory,
+            Project = testProject,
+            Versions = versions.Select(v => v.ToVersionId()).ToArray()
+        };
+
+        List<CordexVersion> actual = config.GetVersions().ToList();
+
+        Assert.Equal(versions.Length, actual.Count);
+        foreach (CordexVersion version in versions)
+            Assert.Contains(version, actual);
+    }
+
+    [Fact]
     public void GetActivities_WithNullActivities_ReturnsAllActivities()
     {
         CordexConfig config = new CordexConfig
@@ -366,5 +481,119 @@ public class CordexConfigTests
         };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => config.CreateDatasets().ToList());
+    }
+
+    [Theory]
+    [InlineData(CordexActivity.DD, CordexActivity.DD)]
+    [InlineData(CordexActivity.BiasCorrected, CordexActivity.BiasCorrected)]
+    [InlineData(CordexActivity.DD, CordexActivity.BiasCorrected, CordexActivity.DD)]
+    public void CreateDatasets_WithDuplicatedActivity_DoesNotProduceDuplicates(params CordexActivity[] activities)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Activities = activities.Select(a => a.ToActivityId()).ToList();
+        config.Versions = activities.Distinct().Select(a => Enum.GetValues<CordexVersion>().First(v => v.IsSupportedFor(a)).ToVersionId()).ToList();
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Equal(activities.Distinct().Count(), datasets.Count);
+    }
+
+    [Theory]
+    [InlineData(CordexVersion.V1R1, CordexVersion.V1R1)]
+    [InlineData(CordexVersion.MrnbcAgcd, CordexVersion.MrnbcAgcd)]
+    [InlineData(CordexVersion.MrnbcBarra, CordexVersion.MrnbcBarra)]
+    [InlineData(CordexVersion.QmeAgcd, CordexVersion.QmeAgcd)]
+    [InlineData(CordexVersion.QmeBarra, CordexVersion.QmeBarra)]
+    [InlineData(CordexVersion.V1R1, CordexVersion.MrnbcAgcd, CordexVersion.V1R1)]
+    [InlineData(CordexVersion.V1R1, CordexVersion.MrnbcAgcd, CordexVersion.MrnbcBarra, CordexVersion.V1R1)]
+    public void CreateDatasets_WithDuplicatedVersion_DoesNotProduceDuplicates(params CordexVersion[] versions)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Versions = versions.Select(v => v.ToVersionId()).ToList();
+        config.Activities = [];
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Equal(versions.Distinct().Count(), datasets.Count);
+    }
+
+    [Theory]
+    [InlineData(CordexExperiment.Historical, CordexExperiment.Historical)]
+    [InlineData(CordexExperiment.Ssp126, CordexExperiment.Ssp126)]
+    [InlineData(CordexExperiment.Ssp370, CordexExperiment.Ssp370)]
+    [InlineData(CordexExperiment.Historical, CordexExperiment.Ssp126, CordexExperiment.Historical)]
+    [InlineData(CordexExperiment.Historical, CordexExperiment.Ssp126, CordexExperiment.Ssp370, CordexExperiment.Ssp126)]
+    public void CreateDatasets_WithDuplicatedExperiment_DoesNotProduceDuplicates(params CordexExperiment[] experiments)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Experiments = experiments.Select(e => e.ToExperimentId()).ToList();
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Equal(experiments.Distinct().Count(), datasets.Count);
+    }
+
+    [Fact]
+    public void CreateDatasets_WithDuplicatedGCM_DoesNotProduceDuplicates()
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        string gcm = CordexGcm.AccessCM2.ToGcmId();
+        config.GCMs = [gcm, gcm];
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Single(datasets);
+    }
+
+    [Theory]
+    [InlineData(CordexInstitution.BOM, CordexInstitution.BOM)]
+    [InlineData(CordexInstitution.CSIRO, CordexInstitution.CSIRO)]
+    [InlineData(CordexInstitution.BOM, CordexInstitution.CSIRO, CordexInstitution.BOM)]
+    public void CreateDatasets_WithDuplicatedInstitution_DoesNotProduceDuplicates(params CordexInstitution[] institutions)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Institutions = institutions.Select(i => i.ToInstitutionId()).ToList();
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Equal(institutions.Distinct().Count(), datasets.Count);
+    }
+
+    [Theory]
+    [InlineData(CordexSource.BarpaR, CordexSource.BarpaR)]
+    [InlineData(CordexSource.Ccamv2203SN, CordexSource.Ccamv2203SN)]
+    [InlineData(CordexSource.BarpaR, CordexSource.Ccamv2203SN, CordexSource.BarpaR)]
+    public void CreateDatasets_WithDuplicatedSource_DoesNotProduceDuplicates(params CordexSource[] sources)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Sources = sources.Select(s => s.ToSourceId()).ToList();
+
+        List<CordexDataset> datasets = config.CreateDatasets().Cast<CordexDataset>().ToList();
+        Assert.Equal(sources.Distinct().Count(), datasets.Count);
+    }
+
+    private CordexConfig CreateValidConfig(TempDirectory workingDirectory)
+    {
+        return new CordexConfig
+        {
+            Version = ModelVersion.Trunk,
+            InputDirectory = workingDirectory.AbsolutePath,
+            InputTimeStepHours = 24,
+            OutputTimeStepHours = 24,
+            Project = testProject,
+            Activities = [CordexActivity.DD.ToActivityId()],
+            Versions = [CordexVersion.V1R1.ToVersionId()],
+            Experiments = [CordexExperiment.Historical.ToExperimentId()],
+            GCMs = [CordexGcm.AccessCM2.ToGcmId()],
+            Institutions = [CordexInstitution.BOM.ToInstitutionId()],
+            Sources = [CordexSource.BarpaR.ToSourceId()]
+        };
     }
 }
