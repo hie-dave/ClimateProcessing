@@ -103,7 +103,7 @@ public class PathManager : IPathManager
     {
         string directory = GetDatasetPath(dataset, pathType);
         Directory.CreateDirectory(directory);
-        string fileName = dataset.GenerateOutputFileName(variable);
+        string fileName = dataset.GenerateOutputFileName(variable, variableManager.GetOutputRequirements(variable));
 
         VariableInfo inputMetadata = dataset.GetVariableInfo(variable);
         VariableInfo targetMetadata = variableManager.GetOutputRequirements(variable);

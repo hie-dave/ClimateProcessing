@@ -9,7 +9,7 @@ public class PathManagerTests : IDisposable
 {
     private readonly TempDirectory outputPath;
     private readonly TempDirectory dataPath;
-    private readonly PathManager _pathManager;
+    private readonly PathManager pathManager;
     private readonly Mock<IClimateDataset> mockDataset;
 
     public PathManagerTests()
@@ -18,7 +18,7 @@ public class PathManagerTests : IDisposable
         dataPath = TempDirectory.Create();
 
         // Setup path manager.
-        _pathManager = new PathManager(outputPath.AbsolutePath);
+        pathManager = new PathManager(outputPath.AbsolutePath);
 
         // Setup some dependencies.
         mockDataset = new Mock<IClimateDataset>();
@@ -37,7 +37,7 @@ public class PathManagerTests : IDisposable
     [InlineData(PathType.Stream)]
     public void GetDatasetPath_ThrowsForInvalidPathTypes(PathType pathType)
     {
-        var ex = Assert.Throws<ArgumentException>(() => _pathManager.GetDatasetPath(mockDataset.Object, pathType));
+        var ex = Assert.Throws<ArgumentException>(() => pathManager.GetDatasetPath(mockDataset.Object, pathType));
         Assert.Contains("not valid at the dataset-level", ex.Message);
     }
 
@@ -46,7 +46,7 @@ public class PathManagerTests : IDisposable
     [InlineData(PathType.Working, "tmp")]
     public void GetDatasetPath_ReturnsCorrectPathForValidTypes(PathType pathType, string expectedBaseDir)
     {
-        string result = _pathManager.GetDatasetPath(mockDataset.Object, pathType);
+        string result = pathManager.GetDatasetPath(mockDataset.Object, pathType);
 
         string expectedPath = Path.Combine(outputPath.AbsolutePath, expectedBaseDir, dataPath.AbsolutePath);
         Assert.Equal(expectedPath, result);
@@ -57,7 +57,7 @@ public class PathManagerTests : IDisposable
     public void GetDatasetFileName_ReturnsCorrectPath()
     {
         const string fileName = "test_file.nc";
-        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>()))
+        mockDataset.Setup(d => d.GenerateOutputFileName(It.IsAny<ClimateVariable>(), It.IsAny<VariableInfo>()))
             .Returns(fileName);
         mockDataset.Setup(d => d.GetVariableInfo(It.IsAny<ClimateVariable>()))
             .Returns(new VariableInfo(fileName, "units"));
@@ -65,7 +65,7 @@ public class PathManagerTests : IDisposable
         mockVariableManager.Setup(v => v.GetOutputRequirements(It.IsAny<ClimateVariable>()))
             .Returns(new VariableInfo(fileName, "units"));
 
-        string result = _pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
+        string result = pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
 
         string expectedPath = Path.Combine(outputPath.AbsolutePath, "output", dataPath.AbsolutePath, fileName);
         Assert.Equal(expectedPath, result);
@@ -80,14 +80,14 @@ public class PathManagerTests : IDisposable
 
         mockDataset.Setup(d => d.GetVariableInfo(ClimateVariable.Precipitation))
             .Returns(new VariableInfo(oldName, "units"));
-        mockDataset.Setup(d => d.GenerateOutputFileName(ClimateVariable.Precipitation))
+        mockDataset.Setup(d => d.GenerateOutputFileName(ClimateVariable.Precipitation, It.IsAny<VariableInfo>()))
             .Returns($"{oldName}.nc");
 
         Mock<IClimateVariableManager> mockVariableManager = new Mock<IClimateVariableManager>();
         mockVariableManager.Setup(v => v.GetOutputRequirements(ClimateVariable.Precipitation))
             .Returns(new VariableInfo(newName, "units"));
 
-        string result = _pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
+        string result = pathManager.GetDatasetFileName(mockDataset.Object, ClimateVariable.Precipitation, PathType.Output, mockVariableManager.Object);
         string fileName = Path.GetFileName(result);
 
         Assert.DoesNotContain(oldName, result);
@@ -97,7 +97,7 @@ public class PathManagerTests : IDisposable
     [Fact]
     public void GetChecksumFilePath_ReturnsCorrectPath()
     {
-        string result = _pathManager.GetChecksumFilePath();
+        string result = pathManager.GetChecksumFilePath();
 
         string expectedPath = Path.Combine(outputPath.AbsolutePath, "output", "sha512sums.txt");
         Assert.Equal(expectedPath, result);
@@ -109,7 +109,7 @@ public class PathManagerTests : IDisposable
         const string datasetDir = "test_dataset";
         mockDataset.Setup(d => d.GetOutputDirectory()).Returns(datasetDir);
 
-        _pathManager.CreateDirectoryTree(mockDataset.Object);
+        pathManager.CreateDirectoryTree(mockDataset.Object);
 
         // Check top-level directories
         Assert.True(Directory.Exists(Path.Combine(outputPath.AbsolutePath, "logs")));
@@ -126,6 +126,6 @@ public class PathManagerTests : IDisposable
     [Fact]
     public void GetBasePath_ThrowsForInvalidPathType()
     {
-        Assert.Throws<ArgumentException>(() => _pathManager.GetBasePath((PathType)123));
+        Assert.Throws<ArgumentException>(() => pathManager.GetBasePath((PathType)123));
     }
 }

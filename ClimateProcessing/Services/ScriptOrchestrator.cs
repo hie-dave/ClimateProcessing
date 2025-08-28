@@ -357,7 +357,7 @@ public class ScriptOrchestrator : IScriptGenerator
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([workDir]);
 
-        await pbsLightweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await pbsLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"IN_DIR=\"{workDir}\"");
         await writer.WriteLineAsync("rm -rf \"${IN_DIR}\"");

@@ -6,6 +6,7 @@ using Microsoft.VisualBasic;
 using System.Globalization;
 using ClimateProcessing.Services;
 using ClimateProcessing.Services.Processors;
+using ClimateProcessing.Extensions;
 
 namespace ClimateProcessing.Models;
 
@@ -237,7 +238,7 @@ public class NarClim2Dataset : IClimateDataset
     /// <remarks>
     /// Marked as virtual for testing.
     /// </remarks>
-    public virtual string GenerateOutputFileName(ClimateVariable variable)
+    public virtual string GenerateOutputFileName(ClimateVariable variable, VariableInfo metadata)
     {
         // Get the first input file for this variable to use as a pattern
         IEnumerable<string> inputFiles = GetInputFiles(variable);
@@ -253,6 +254,13 @@ public class NarClim2Dataset : IClimateDataset
         // Extract the pattern before the date range
         // pr_AUS-18_ACCESS-ESM1-5_historical_r6i1p1f1_NSW-Government_NARCliM2-0-WRF412R3_v1-r1_mon_198301-198312.nc
         string prefix = string.Join("_", firstFile.Split('_').TakeWhile(p => !p.Contains(".nc")));
+
+        string inName = GetVariableInfo(variable).Name;
+        string outName = metadata.Name;
+
+        // The file name starts with $"{varName}_".
+        if (inName != outName)
+            prefix = prefix.ReplaceFirst($"{inName}_", $"{outName}_");
 
         // Add the date range and extension
         return $"{prefix}_{startDate:yyyyMM}-{endDate:yyyyMM}.nc";

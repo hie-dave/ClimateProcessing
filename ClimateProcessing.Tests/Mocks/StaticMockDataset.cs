@@ -36,7 +36,7 @@ internal class StaticMockDataset : IClimateDataset
     public VariableInfo GetVariableInfo(ClimateVariable variable)
         => new(varName, varUnits);
 
-    public string GenerateOutputFileName(ClimateVariable variable)
+    public string GenerateOutputFileName(ClimateVariable variable, VariableInfo variableInfo)
         => "output.nc";
 
     public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context) => [];

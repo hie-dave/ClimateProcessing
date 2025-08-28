@@ -1,10 +1,13 @@
+using System.Threading.Tasks;
 using ClimateProcessing.Configuration;
 using ClimateProcessing.Models;
 using ClimateProcessing.Services;
 using ClimateProcessing.Services.Processors;
 using ClimateProcessing.Tests.Helpers;
+using ClimateProcessing.Tests.Mocks;
 using Moq;
 using Xunit;
+using Xunit.Sdk;
 
 namespace ClimateProcessing.Tests.Services.Processors;
 
@@ -115,7 +118,7 @@ public class MeanProcessorTests
         Assert.Single(jobs);
         Job job = jobs[0];
 
-        Assert.Equal($"calc_mean_{targetVariable}", job.Name);
+        Assert.Equal($"calc_mean_{mockVariableManager.Object.GetOutputRequirements(targetVariable).Name}_{mockDataset.Object.DatasetName}", job.Name);
         Assert.Equal(InMemoryScriptWriter.ScriptName, job.ScriptPath);
         Assert.Equal(ClimateVariableFormat.Timeseries(targetVariable), job.Output);
         Assert.Equal(outputPath, job.OutputPath);
@@ -194,6 +197,39 @@ public class MeanProcessorTests
             [inputFileName, inputFileName, inputFileName],
             mockVariableManager.Object.GetOutputRequirements(targetVariable),
             threeDependencies.Select(mockVariableManager.Object.GetOutputRequirements).ToList());
+    }
+
+    [Fact]
+    public async Task EquationFile_LinesEndInSemicolon()
+    {
+        const string outFileName = "asdf";
+        MeanProcessor processor = new MeanProcessor(outFileName, targetVariable, dependencies);
+
+        DynamicMockDataset dataset = new DynamicMockDataset("/in", "/out");
+        TestContext context = new TestContext();
+        context.ConfigureDependency(ClimateVariableFormat.Timeseries(ClimateVariable.MinTemperature));
+        context.ConfigureDependency(ClimateVariableFormat.Timeseries(ClimateVariable.MaxTemperature));
+
+        // Generate jobs.
+        IReadOnlyList<Job> jobs = await processor.CreateJobsAsync(dataset, context);
+
+        // Verify script content.
+        Job job = Assert.Single(jobs);
+        string scriptContent = context.ReadScript(job);
+        string[] lines = scriptContent.Split('\n');
+
+        // Get non-comment lines between EOF markers.
+        int start = Array.IndexOf(lines, lines.First(l => l.Contains("EOF"))) + 1;
+        int end = Array.LastIndexOf(lines, lines.Last(l => l.Contains("EOF")));
+        string[] equationLines = lines[start..end];
+        equationLines = equationLines.Where(l => !l.StartsWith('#')).ToArray();
+
+        // Ensure we are actually testing something here.
+        Assert.True(equationLines.Length > 0);
+
+        // All lines in a cdo exprf equation file should end with a semicolon.
+        foreach (string line in equationLines)
+            Assert.EndsWith(";", line);
     }
 
     private static PBSWriter CreatePBSWriter(IPathManager pathManager)

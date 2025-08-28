@@ -17,9 +17,9 @@ public class TestJobCreationContext : IJobCreationContext
 
     public IClimateVariableManager VariableManager { get; set; }
 
-    public PBSWriter PBSLightweight { get; set; }
+    public IScriptHeaderWriter PBSLightweight { get; set; }
 
-    public PBSWriter PBSHeavyweight { get; set; }
+    public IScriptHeaderWriter PBSHeavyweight { get; set; }
 
     public IRemappingService Remapper { get; set; }
 

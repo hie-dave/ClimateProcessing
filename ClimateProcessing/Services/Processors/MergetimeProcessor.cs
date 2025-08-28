@@ -81,7 +81,7 @@ public class MergetimeProcessor : IVariableProcessor
         // This should be unnecessary at this point.
         string jobName = $"mergetime_{inputMetadata.Name}_{dataset.DatasetName}";
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
-        await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         MergetimeOptions opts = new MergetimeOptions(
             inDir,

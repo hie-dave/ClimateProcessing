@@ -73,7 +73,7 @@ public class VpdCalculator : IVariableProcessor
         ];
         IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"HUSS_FILE=\"{humidityFile}\"");

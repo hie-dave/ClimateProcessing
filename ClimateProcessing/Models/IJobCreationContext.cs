@@ -30,12 +30,12 @@ public interface IJobCreationContext
     /// <summary>
     /// The PBS lightweight script writer.
     /// </summary>
-    PBSWriter PBSLightweight { get; }
+    IScriptHeaderWriter PBSLightweight { get; }
 
     /// <summary>
     /// The PBS heavyweight script writer.
     /// </summary>
-    PBSWriter PBSHeavyweight { get; }
+    IScriptHeaderWriter PBSHeavyweight { get; }
 
     /// <summary>
     /// The remapping service.

@@ -55,13 +55,18 @@ public class MeanProcessor : IVariableProcessor
         string outputDirectory = context.PathManager.GetDatasetPath(dataset, PathType.Working);
         string outputFile = Path.Combine(outputDirectory, outputFileName);
 
+        // Ensure we have no file conflicts.
+        if (inputFiles.Any(i => i == outputFile))
+            throw new ArgumentException($"Output file {outputFile} conflicts with an input file.");
+
         string[] requiredFiles = [.. inputFiles, outputFile];
         IEnumerable<PBSStorageDirective> storageDirectives = PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        string jobName = $"calc_mean_{TargetVariable}";
+        VariableInfo varInfo = context.VariableManager.GetOutputRequirements(TargetVariable);
+        string jobName = $"calc_mean_{varInfo.Name}_{dataset.DatasetName}";
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
 
-        await context.PBSLightweight.WritePBSHeader(writer, jobName, storageDirectives);
+        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"IN_FILES=\"{string.Join(" ", inputFiles)}\"");
@@ -103,6 +108,6 @@ public class MeanProcessor : IVariableProcessor
         IEnumerable<string> inputVariables = dependencies.Select(d => context.VariableManager.GetOutputRequirements(d).Name);
         string outputVariableName = context.VariableManager.GetOutputRequirements(TargetVariable).Name;
         int denominator = dependencies.Count();
-        await writer.WriteLineAsync($"{outputVariableName}=({string.Join(" + ", inputVariables)})/{denominator}");
+        await writer.WriteLineAsync($"{outputVariableName}=({string.Join(" + ", inputVariables)})/{denominator};");
     }
 }

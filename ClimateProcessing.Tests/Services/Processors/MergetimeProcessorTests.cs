@@ -68,7 +68,7 @@ public sealed class MergetimeProcessorTests : IDisposable
         mockDataset.Setup(d => d.DatasetName).Returns("TestDataset");
         mockDataset.Setup(d => d.GetOutputDirectory()).Returns(outputDirectory);
         mockDataset.Setup(d => d.GetInputFilesDirectory(targetVariable)).Returns(inputDir);
-        mockDataset.Setup(d => d.GenerateOutputFileName(targetVariable)).Returns(outputFileName);
+        mockDataset.Setup(d => d.GenerateOutputFileName(targetVariable, It.IsAny<VariableInfo>())).Returns(outputFileName);
         
         VariableInfo variableInfo = new("tas", "K");
         mockDataset.Setup(d => d.GetVariableInfo(targetVariable)).Returns(variableInfo);
