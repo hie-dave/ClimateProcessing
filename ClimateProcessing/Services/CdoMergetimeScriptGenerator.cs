@@ -231,7 +231,7 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     /// <param name="attribute">The attribute.</param>
     /// <param name="value">The value.</param>
     /// <returns>The CDO operator to set the attribute.</returns>
-    private static string GetSetAttributeOperator(string variable, string attribute, string value)
+    internal static string GetSetAttributeOperator(string variable, string attribute, string value)
     {
         return $"-setattribute,'{variable}@{attribute}={value}'";
     }

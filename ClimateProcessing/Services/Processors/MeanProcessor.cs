@@ -85,10 +85,22 @@ public class MeanProcessor : IVariableProcessor
         await writer.WriteLineAsync("EOF");
         await writer.WriteLineAsync();
 
+        string standardArgs = CdoMergetimeScriptGenerator.GetCommonArgs();
+        string setStdNameOp = CdoMergetimeScriptGenerator.GetSetAttributeOperator(
+            varInfo.Name,
+            "standard_name",
+            context.VariableManager.GetStandardName(TargetVariable)
+        );
+
         // Calculate mean using the equation file.
+
+        // We have used the target variable's destination name in the
+        // setattribute operator, so this needs to happen *after* the exprf
+        // operator in which this variable is actually calculated. (As always,
+        // operators which appear earlier in the cdo CLI are applied later.)
         await writer.WriteLineAsync("# Calculate mean.");
         await writer.WriteLineAsync($"log \"Calculating mean...\"");
-        await writer.WriteLineAsync($"cdo {CdoMergetimeScriptGenerator.GetCommonArgs()} exprf,\"${{EQN_FILE}}\" -merge ${{IN_FILES}} \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync($"cdo {standardArgs} {setStdNameOp} exprf,\"${{EQN_FILE}}\" -merge ${{IN_FILES}} \"${{OUT_FILE}}\"");
         await writer.WriteLineAsync($"log \"Mean calculation completed successfully.\"");
 
         return [new Job(
