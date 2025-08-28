@@ -12,7 +12,7 @@ public class ClimateVariableManagerTests
     [InlineData(ClimateVariable.Temperature, "degC", ModelVersion.Dave)]
     [InlineData(ClimateVariable.MaxTemperature, "K", ModelVersion.Trunk)]
     [InlineData(ClimateVariable.MinTemperature, "K", ModelVersion.Trunk)]
-    [InlineData(ClimateVariable.Precipitation, "mm", ModelVersion.Trunk)]
+    [InlineData(ClimateVariable.Precipitation, "kg m-2", ModelVersion.Trunk)]
     [InlineData(ClimateVariable.Precipitation, "mm", ModelVersion.Dave)]
     [InlineData(ClimateVariable.ShortwaveRadiation, "W m-2", ModelVersion.Trunk)]
     [InlineData(ClimateVariable.ShortwaveRadiation, "W m-2", ModelVersion.Dave)]
@@ -115,5 +115,28 @@ public class ClimateVariableManagerTests
         ClimateVariableManager manager = new ClimateVariableManager(ModelVersion.Dave);
         Exception ex = Record.Exception(() => manager.GetOutputRequirements(variable));
         Assert.Null(ex);
+    }
+
+    [Theory]
+    [InlineData(ModelVersion.Trunk)]
+    [InlineData(ModelVersion.Dave)]
+    public void GetStandardName_DoesNotThrowForValidVariable(ModelVersion version)
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(version);
+        foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
+        {
+            Exception ex = Record.Exception(() => manager.GetStandardName(variable));
+            Assert.Null(ex);
+        }
+    }
+
+    [Theory]
+    [InlineData(ModelVersion.Trunk)]
+    [InlineData(ModelVersion.Dave)]
+    public void GetStandardName_ThrowsForInvalidVariable(ModelVersion version)
+    {
+        ClimateVariableManager manager = new ClimateVariableManager(version);
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => manager.GetStandardName((ClimateVariable)12345));
+        Assert.Contains("variable", ex.Message);
     }
 }

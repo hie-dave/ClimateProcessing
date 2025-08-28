@@ -48,11 +48,12 @@ mkdir -p "${MOD_DIR}"
 # Perform corrective operations on input files:
 # - Remap input files to target grid.
 # - Unpack data.
+# - Set standard name to air_temperature.
 # - Convert units from K to degC.
 # - Aggregate data from 1hour to 3hour.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1 -timselmean,3 -subc,273.15 -setattribute,'tas@units=degC' -unpack -remapbil,"${GRID_FILE}" "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -timselmean,3 -subc,273.15 -setattribute,'tas@units=degC' -setattribute,'tas@standard_name=air_temperature' -unpack -remapbil,"${GRID_FILE}" "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 

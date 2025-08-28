@@ -56,9 +56,10 @@ log "Successfully corrected all rlon values."
 
 # Perform corrective operations on input files:
 # - Unpack data.
+# - Set standard name to specific_humidity.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1 -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -setattribute,'huss@standard_name=specific_humidity' -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 

@@ -245,7 +245,7 @@ public class CdoMergetimeScriptGeneratorTests
         }
 
         if (unitRenameOperator is null)
-            Assert.DoesNotContain("setattribute", line);
+            Assert.DoesNotContain("setattribute,units", line);
         else
         {
             Assert.Contains(unitRenameOperator, line);

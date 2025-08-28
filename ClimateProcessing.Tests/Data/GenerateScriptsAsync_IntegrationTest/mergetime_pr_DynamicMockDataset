@@ -48,11 +48,12 @@ mkdir -p "${MOD_DIR}"
 # Perform corrective operations on input files:
 # - Remap input files to target grid.
 # - Unpack data.
+# - Set standard name to precipitation_amount.
 # - Convert units from kg m-2 s-1 to mm.
 # - Aggregate data from 1hour to 3hour.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1 -timselsum,3 -mulc,3600 -setattribute,'pr@units=mm' -unpack -remapbil,"${GRID_FILE}" "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -timselsum,3 -mulc,3600 -setattribute,'pr@units=mm' -setattribute,'pr@standard_name=precipitation_amount' -unpack -remapbil,"${GRID_FILE}" "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 

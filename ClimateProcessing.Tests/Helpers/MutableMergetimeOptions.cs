@@ -23,4 +23,5 @@ public class MutableMergetimeOptions : IMergetimeOptions
     public bool Unpack { get; set; } = false;
     public bool Compress { get; set; } = false;
     public IClimateDataset Dataset { get; set; } = new StaticMockDataset("/input");
+    public string StandardName { get; set; } = "standardName";
 }

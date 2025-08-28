@@ -34,6 +34,12 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     /// </summary>
     private const string remapBilinear = "remapbil";
 
+    /// <summary>
+    /// The name of the "standard name" attribute in the CF specification.
+    /// </summary>
+    private const string stdNameAttr = "standard_name";
+
+    /// <inheritdoc/>
     public async Task WriteMergetimeScriptAsync(IFileWriter writer, IMergetimeOptions options)
     {
         string rename = GenerateRenameOperator(options.InputMetadata.Name, options.TargetMetadata.Name);
@@ -42,7 +48,12 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
         string unpack = "-unpack";
         string remapOperator = GetRemapOperator(options.RemapAlgorithm);
         string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
-        string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
+
+        // Note: we rename before changing the standard name, so the operator
+        // which changes the standard name must use the target variable name.
+        string setStdName = GetSetAttributeOperator(options.TargetMetadata.Name, stdNameAttr, options.StandardName);
+
+        string operators = $"{aggregation} {conversion} {setStdName} {rename} {unpack} {remap}";
         operators = Regex.Replace(operators, " +", " ").Trim();
 
         await writer.WriteLineAsync("# File paths.");
@@ -76,6 +87,8 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
                 await writer.WriteLineAsync("# - Unpack data.");
             if (!string.IsNullOrEmpty(rename))
                 await writer.WriteLineAsync($"# - Rename variable from {options.InputMetadata.Name} to {options.TargetMetadata.Name}.");
+            if (!string.IsNullOrEmpty(setStdName))
+                await writer.WriteLineAsync($"# - Set standard name to {options.StandardName}.");
             if (!string.IsNullOrEmpty(conversion))
                 await writer.WriteLineAsync($"# - Convert units from {options.InputMetadata.Units} to {options.TargetMetadata.Units}.");
             if (!string.IsNullOrEmpty(aggregation))
@@ -145,7 +158,7 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
         }
 
         if (result.RequiresRenaming)
-            operators.Add($"-setattribute,'{outputVar}@units={targetUnits}'");
+            operators.Add(GetSetAttributeOperator(outputVar, "units", targetUnits));
 
         return operators;
     }
@@ -209,5 +222,17 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     protected virtual Task WritePreMerge(IFileWriter writer, IMergetimeOptions options)
     {
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Generates the operator to set an attribute of a variable.
+    /// </summary>
+    /// <param name="variable">The variable.</param>
+    /// <param name="attribute">The attribute.</param>
+    /// <param name="value">The value.</param>
+    /// <returns>The CDO operator to set the attribute.</returns>
+    private static string GetSetAttributeOperator(string variable, string attribute, string value)
+    {
+        return $"-setattribute,'{variable}@{attribute}={value}'";
     }
 }

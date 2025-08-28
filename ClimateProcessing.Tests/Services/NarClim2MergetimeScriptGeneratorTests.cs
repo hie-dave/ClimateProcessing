@@ -80,7 +80,8 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
             InterpolationAlgorithm.Conservative,
             false,
             false,
-            dataset);
+            dataset,
+            "standardName");
     }
 
     [Theory]

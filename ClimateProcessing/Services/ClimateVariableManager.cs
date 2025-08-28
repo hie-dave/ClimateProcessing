@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using ClimateProcessing.Models;
 using ClimateProcessing.Units;
 
@@ -66,7 +65,7 @@ public class ClimateVariableManager : IClimateVariableManager
     private static readonly IReadOnlyDictionary<ClimateVariable, string> trunkUnits = new Dictionary<ClimateVariable, string>()
     {
         { ClimateVariable.Temperature, "K" },
-        { ClimateVariable.Precipitation, "mm" },
+        { ClimateVariable.Precipitation, "kg m-2" },
         { ClimateVariable.SpecificHumidity, "1" },
         { ClimateVariable.SurfacePressure, "Pa" },
         { ClimateVariable.ShortwaveRadiation, "W m-2" },
@@ -76,6 +75,31 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.RelativeHumidity, "1" },
         { ClimateVariable.MinRelativeHumidity, "1" },
         { ClimateVariable.MaxRelativeHumidity, "1" }
+    };
+
+    /// <summary>
+    /// Standard names for each variable as required by the model. Only the
+    /// trunk version is really "strict" about the standard names, so we just
+    /// use this same lookup table for the dave version too (as it results in
+    /// more intuitive output files).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<ClimateVariable, string> standardNames = new Dictionary<ClimateVariable, string>()
+    {
+        { ClimateVariable.Temperature, "air_temperature" },
+        // "precipitation_flux" is accepted if the units are "kg m-2 s-1", but
+        // we don't support this use case (nor do we need to).
+        { ClimateVariable.Precipitation, "precipitation_amount" },
+        { ClimateVariable.SpecificHumidity, "specific_humidity" },
+        { ClimateVariable.SurfacePressure, "surface_air_pressure" },
+        // Several valid options exist for shortwave radiation.
+        { ClimateVariable.ShortwaveRadiation, "surface_downwelling_shortwave_flux_in_air" },
+        { ClimateVariable.WindSpeed, "wind_speed" },
+        { ClimateVariable.RelativeHumidity, "relative_humidity" },
+        { ClimateVariable.MaxTemperature, "air_temperature_maximum" },
+        { ClimateVariable.MinTemperature, "air_temperature_minimum" },
+        { ClimateVariable.MaxRelativeHumidity, "relative_humidity_maximum" },
+        { ClimateVariable.MinRelativeHumidity, "relative_humidity_minimum" },
+        { ClimateVariable.Vpd, "water_vapor_saturation_deficit_in_air" },
     };
 
     /// <summary>
@@ -113,6 +137,14 @@ public class ClimateVariableManager : IClimateVariableManager
         if (!aggregationMethods.TryGetValue(variable, out AggregationMethod method))
             throw new ArgumentException($"No aggregation method defined for variable {variable}");
         return method;
+    }
+
+    /// <inheritdoc/>
+    public string GetStandardName(ClimateVariable variable)
+    {
+        if (!standardNames.TryGetValue(variable, out string? standardName))
+            throw new ArgumentException($"No standard name defined for variable {variable}");
+        return standardName;
     }
 
     /// <summary>
