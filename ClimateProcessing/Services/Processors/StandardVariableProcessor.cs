@@ -125,8 +125,7 @@ public class StandardVariableProcessor : IVariableProcessor
             context.Remapper.GetInterpolationAlgorithm(inputMetadata, TargetVariable),
             false,
             false,
-            dataset,
-            context.VariableManager.GetStandardName(TargetVariable)
+            dataset
         );
 
         await mergetimeGenerator.WriteMergetimeScriptAsync(writer, opts);
@@ -175,6 +174,8 @@ public class StandardVariableProcessor : IVariableProcessor
             context.Config.ChunkSizeTime,
             context.Config.CompressionLevel,
             cleanup,
+            varInfo.Name,
+            context.VariableManager.GetMetadata(TargetVariable),
             context.PathManager
         );
 

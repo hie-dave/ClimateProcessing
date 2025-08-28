@@ -41,6 +41,10 @@ log "Rechunking files..."
 ncpdq -O -a lat,lon,time --cnk_dmn lat,10 --cnk_dmn lon,10 --cnk_dmn time,5 -L4 "${IN_FILE}" "${OUT_FILE}"
 log "All files rechunked successfully."
 
+log "Updating metadata..."
+ncatted -O -a 'standard_name,tas,o,c,air_temperature' -a 'long_name,tas,o,c,Air Temperature' "${OUT_FILE}"
+log "Metadata updated successfully."
+
 # Calculate checksum.
 log "Calculating checksum..."
 cd "@#OUTPUT_DIRECTORY#@/output"

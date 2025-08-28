@@ -56,7 +56,8 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.SpecificHumidity, "1" },
         { ClimateVariable.SurfacePressure, "Pa" },
         { ClimateVariable.ShortwaveRadiation, "W m-2" },
-        { ClimateVariable.WindSpeed, "m s-1" }
+        { ClimateVariable.WindSpeed, "m s-1" },
+        { ClimateVariable.Vpd, "kPa" }
     };
 
     /// <summary>
@@ -103,6 +104,29 @@ public class ClimateVariableManager : IClimateVariableManager
     };
 
     /// <summary>
+    /// Long names for each variable as required by the model.
+    /// </summary>
+    /// <remarks>
+    /// No version of the model is strict about the long names; these are
+    /// included for metadata purposes only.
+    /// </remarks>
+    private static readonly Dictionary<ClimateVariable, string> longNames = new()
+    {
+        { ClimateVariable.Temperature, "Air Temperature" },
+        { ClimateVariable.Precipitation, "Precipitation" },
+        { ClimateVariable.SpecificHumidity, "Specific Humidity" },
+        { ClimateVariable.SurfacePressure, "Surface Air Pressure" },
+        { ClimateVariable.ShortwaveRadiation, "Down-welling Shortwave Radiation" },
+        { ClimateVariable.WindSpeed, "Wind Speed" },
+        { ClimateVariable.RelativeHumidity, "Relative Humidity" },
+        { ClimateVariable.MaxTemperature, "Maximum Air Temperature" },
+        { ClimateVariable.MinTemperature, "Minimum Air Temperature" },
+        { ClimateVariable.MaxRelativeHumidity, "Maximum Relative Humidity" },
+        { ClimateVariable.MinRelativeHumidity, "Minimum Relative Humidity" },
+        { ClimateVariable.Vpd, "Vapor Pressure Deficit" },
+    };
+
+    /// <summary>
     /// The version of LPJ-Guess by which the data is going to be used.
     /// </summary>
     private readonly ModelVersion version;
@@ -140,11 +164,11 @@ public class ClimateVariableManager : IClimateVariableManager
     }
 
     /// <inheritdoc/>
-    public string GetStandardName(ClimateVariable variable)
+    public VariableMetadata GetMetadata(ClimateVariable variable)
     {
-        if (!standardNames.TryGetValue(variable, out string? standardName))
-            throw new ArgumentException($"No standard name defined for variable {variable}");
-        return standardName;
+        string standardName = GetStandardName(variable);
+        string longName = GetLongName(variable);
+        return new VariableMetadata(standardName, longName);
     }
 
     /// <summary>
@@ -172,5 +196,31 @@ public class ClimateVariableManager : IClimateVariableManager
     private IReadOnlyDictionary<ClimateVariable, string> GetDictionary()
     {
         return version == ModelVersion.Dave ? daveUnits : trunkUnits;
+    }
+
+    /// <summary>
+    /// Gets the long name of the specified variable.
+    /// </summary>
+    /// <param name="variable">The variable.</param>
+    /// <returns>The long name of the variable.</returns>
+    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
+    private static string GetLongName(ClimateVariable variable)
+    {
+        if (!longNames.TryGetValue(variable, out string? longName))
+            throw new ArgumentException($"No long name defined for variable {variable}");
+        return longName;
+    }
+
+    /// <summary>
+    /// Gets the standard name of the specified variable.
+    /// </summary>
+    /// <param name="variable">The variable.</param>
+    /// <returns>The standard name of the variable.</returns>
+    /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
+    private static string GetStandardName(ClimateVariable variable)
+    {
+        if (!standardNames.TryGetValue(variable, out string? standardName))
+            throw new ArgumentException($"No standard name defined for variable {variable}");
+        return standardName;
     }
 }

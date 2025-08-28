@@ -10,6 +10,16 @@ namespace ClimateProcessing.Services;
 public class NcoRechunkScriptGenerator : IRechunkScriptGenerator
 {
     /// <summary>
+    /// Name of the "standard name" attribute in the CF specification.
+    /// </summary>
+    private const string standardName = "standard_name";
+
+    /// <summary>
+    /// Name of the "long name" attribute in the CF specification.
+    /// </summary>
+    private const string longName = "long_name";
+
+    /// <summary>
     /// Creates a new rechunk script generator.
     /// </summary>
     public NcoRechunkScriptGenerator() { }
@@ -41,6 +51,14 @@ public class NcoRechunkScriptGenerator : IRechunkScriptGenerator
         await writer.WriteLineAsync("log \"All files rechunked successfully.\"");
         await writer.WriteLineAsync();
 
+        // Update metadata.
+        string stdNameOp = NcattedSpec(options.VariableName, standardName, options.Metadata.StandardName);
+        string longNameOp = NcattedSpec(options.VariableName, longName, options.Metadata.LongName);
+        await writer.WriteLineAsync("log \"Updating metadata...\"");
+        await writer.WriteLineAsync($"ncatted -O {stdNameOp} {longNameOp} \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync("log \"Metadata updated successfully.\"");
+        await writer.WriteLineAsync();
+
         // Calculate checksum.
         // Note: we change directory and use a relative file path, to ensure
         // that the checksum file remains portable.
@@ -67,5 +85,17 @@ public class NcoRechunkScriptGenerator : IRechunkScriptGenerator
         }
         else
             await writer.WriteLineAsync("# Input file cannot (necessarily) be deleted yet, since it is required for VPD estimation.");
+    }
+
+    /// <summary>
+    /// Generate a "-a <...>" CLI argument to ncatted.
+    /// </summary>
+    /// <param name="variableName">Name of the variable with an attribute to set.</param>
+    /// <param name="attributeName">Name of the attribute to set.</param>
+    /// <param name="attributeValue">Value of the attribute to set.</param>
+    /// <returns>CLI argument that can be passed to ncatted.</returns>
+    private static string NcattedSpec(string variableName, string attributeName, string attributeValue)
+    {
+        return $"-a '{attributeName},{variableName},o,c,{attributeValue}'";
     }
 }

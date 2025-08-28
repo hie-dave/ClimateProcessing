@@ -38,6 +38,16 @@ public interface IRechunkOptions
     bool Cleanup { get; }
 
     /// <summary>
+    /// The name of the variable to be rechunked.
+    /// </summary>
+    string VariableName { get; }
+
+    /// <summary>
+    /// Metadata about the variable to be rechunked.
+    /// </summary>
+    VariableMetadata Metadata { get; }
+
+    /// <summary>
     /// The path manager to use for file paths.
     /// </summary>
     IPathManager PathManager { get; }

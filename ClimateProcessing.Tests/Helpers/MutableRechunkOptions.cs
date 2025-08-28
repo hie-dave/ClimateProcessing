@@ -1,3 +1,4 @@
+using ClimateProcessing.Models;
 using ClimateProcessing.Models.Options;
 using ClimateProcessing.Services;
 using ClimateProcessing.Tests.Mocks;
@@ -38,6 +39,16 @@ public class MutableRechunkOptions : IRechunkOptions
     /// Whether to delete the input file after rechunking.
     /// </summary>
     public bool Cleanup { get; set; } = true;
+
+    /// <summary>
+    /// The variable name to use.
+    /// </summary>
+    public string VariableName { get; set; } = "var";
+
+    /// <summary>
+    /// The metadata to use.
+    /// </summary>
+    public VariableMetadata Metadata { get; set; } = new VariableMetadata("standard", "long");
 
     /// <summary>
     /// The path manager to use for file paths.

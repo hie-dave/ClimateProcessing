@@ -38,6 +38,16 @@ public class RechunkOptions : IRechunkOptions
     public bool Cleanup { get; private init; }
 
     /// <summary>
+    /// The name of the variable to be rechunked.
+    /// </summary>
+    public string VariableName { get; private init; }
+
+    /// <summary>
+    /// Metadata about the variable to be rechunked.
+    /// </summary>
+    public VariableMetadata Metadata { get; private init; }
+
+    /// <summary>
     /// The path manager to use for file paths.
     /// </summary>
     public IPathManager PathManager { get; private init; }
@@ -51,6 +61,8 @@ public class RechunkOptions : IRechunkOptions
     /// <param name="timeChunkSize">The chunk size to use for the time dimension.</param>
     /// <param name="compressionLevel">The compression level to use (0-9, 0 = no compression).</param>
     /// <param name="cleanup">Whether to delete the input file after rechunking.</param>
+    /// <param name="variableName">The name of the variable to be rechunked.</param>
+    /// <param name="metadata">Metadata about the variable to be rechunked.</param>
     /// <param name="pathManager">The path manager to use for file paths.</param>
     public RechunkOptions(
         string inputFile,
@@ -59,6 +71,8 @@ public class RechunkOptions : IRechunkOptions
         int timeChunkSize,
         int compressionLevel,
         bool cleanup,
+        string variableName,
+        VariableMetadata metadata,
         IPathManager pathManager)
     {
         InputFile = inputFile;
@@ -67,6 +81,8 @@ public class RechunkOptions : IRechunkOptions
         TimeChunkSize = timeChunkSize;
         CompressionLevel = compressionLevel;
         Cleanup = cleanup;
+        VariableName = variableName;
+        Metadata = metadata;
         PathManager = pathManager;
     }
 }

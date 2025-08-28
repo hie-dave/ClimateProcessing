@@ -278,11 +278,24 @@ public class NarClim2Dataset : IClimateDataset
     /// <inheritdoc />
     public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context)
     {
-        List<IVariableProcessor> processors = context.VariableManager
-            .GetRequiredVariables()
+        List<ClimateVariable> standardVariables = [
+            ClimateVariable.Temperature,
+            ClimateVariable.Precipitation,
+            ClimateVariable.SpecificHumidity,
+            ClimateVariable.SurfacePressure,
+            ClimateVariable.ShortwaveRadiation,
+            ClimateVariable.WindSpeed
+        ];
+        if (context.Config.OutputTimeStep.Hours == 24)
+        {
+            standardVariables.Add(ClimateVariable.MinTemperature);
+            standardVariables.Add(ClimateVariable.MaxTemperature);
+        }
+        List<IVariableProcessor> processors = standardVariables
             .Select(v => new StandardVariableProcessor(v, new NarClim2MergetimeScriptGenerator(), new NcoRechunkScriptGenerator()))
             .ToList<IVariableProcessor>();
-        processors.Add(new RechunkProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));
+        if (context.Config.Version == ModelVersion.Dave)
+            processors.Add(new RechunkProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));
         return processors;
     }
 }

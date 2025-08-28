@@ -69,11 +69,6 @@ public class MergetimeOptions : IMergetimeOptions
     public IClimateDataset Dataset { get; private init; }
 
     /// <summary>
-    /// The standard name of the target variable as required by the model.
-    /// </summary>
-    public string StandardName { get; private init; }
-
-    /// <summary>
     /// Creates a new instance of <see cref="MergetimeOptions"/>.
     /// </summary>
     /// <param name="inputDirectory">The directory containing the input files.</param>
@@ -88,7 +83,6 @@ public class MergetimeOptions : IMergetimeOptions
     /// <param name="unpack">Whether to unpack the input files.</param>
     /// <param name="compress">Whether to compress the output file.</param>
     /// <param name="dataset">The dataset to use for the mergetime operation.</param>
-    /// <param name="standardName">The standard name of the target variable as required by the model.</param>
     public MergetimeOptions(
         string inputDirectory,
         string outputFile,
@@ -101,8 +95,7 @@ public class MergetimeOptions : IMergetimeOptions
         InterpolationAlgorithm remapAlgorithm,
         bool unpack,
         bool compress,
-        IClimateDataset dataset,
-        string standardName)
+        IClimateDataset dataset)
     {
         InputDirectory = inputDirectory;
         OutputFile = outputFile;
@@ -116,6 +109,5 @@ public class MergetimeOptions : IMergetimeOptions
         Unpack = unpack;
         Compress = compress;
         Dataset = dataset;
-        StandardName = standardName;
     }
 }

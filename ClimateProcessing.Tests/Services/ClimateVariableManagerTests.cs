@@ -120,12 +120,12 @@ public class ClimateVariableManagerTests
     [Theory]
     [InlineData(ModelVersion.Trunk)]
     [InlineData(ModelVersion.Dave)]
-    public void GetStandardName_DoesNotThrowForValidVariable(ModelVersion version)
+    public void GetMetadata_DoesNotThrowForValidVariable(ModelVersion version)
     {
         ClimateVariableManager manager = new ClimateVariableManager(version);
         foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
         {
-            Exception ex = Record.Exception(() => manager.GetStandardName(variable));
+            Exception ex = Record.Exception(() => manager.GetMetadata(variable));
             Assert.Null(ex);
         }
     }
@@ -133,10 +133,10 @@ public class ClimateVariableManagerTests
     [Theory]
     [InlineData(ModelVersion.Trunk)]
     [InlineData(ModelVersion.Dave)]
-    public void GetStandardName_ThrowsForInvalidVariable(ModelVersion version)
+    public void GetMetadata_ThrowsForInvalidVariable(ModelVersion version)
     {
         ClimateVariableManager manager = new ClimateVariableManager(version);
-        ArgumentException ex = Assert.Throws<ArgumentException>(() => manager.GetStandardName((ClimateVariable)12345));
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => manager.GetMetadata((ClimateVariable)12345));
         Assert.Contains("variable", ex.Message);
     }
 }

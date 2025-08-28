@@ -247,37 +247,6 @@ public class MeanProcessorTests
             Assert.EndsWith(";", line);
     }
 
-    [Theory]
-    [InlineData(ClimateVariable.MinTemperature, "min_temp")]
-    [InlineData(ClimateVariable.MaxTemperature, "max_temp")]
-    public async Task CreateJobsAsync_SetsStandardName(ClimateVariable variable, string expected)
-    {
-        const string varName = "asdf";
-        const string units = "K";
-        List<ClimateVariable> deps = Enum.GetValues<ClimateVariable>().Where(v => v != variable).Take(2).ToList();
-
-        Mock<IClimateVariableManager> mockVariableManager = new Mock<IClimateVariableManager>();
-        mockVariableManager.Setup(vm => vm.GetStandardName(variable)).Returns(expected);
-        mockVariableManager.Setup(vm => vm.GetOutputRequirements(variable)).Returns(new VariableInfo(varName, units));
-        deps.ForEach(d => mockVariableManager.Setup(vm => vm.GetOutputRequirements(d)).Returns(new VariableInfo(Enum.GetName(d)!, units)));
-
-        TestJobCreationContext context = new TestJobCreationContext();
-        context.VariableManager = mockVariableManager.Object;
-
-        const string inputPath = "/xyz";
-        const string outFile = "asdf.nc";
-
-        DynamicMockDataset dataset = new DynamicMockDataset(inputPath);
-        deps.ForEach(d => dataset.SetVariableInfo(d, Enum.GetName(d)!, units));
-
-        MeanProcessor processor = new MeanProcessor(outFile, variable, deps);
-        IReadOnlyList<Job> jobs = await processor.CreateJobsAsync(dataset, context);
-        Job job = Assert.Single(jobs);
-
-        string scriptContent = context.ReadScript(job);
-        Assert.Contains($"-setattribute,'{varName}@standard_name={expected}'", scriptContent);
-    }
-
     private static PBSWriter CreatePBSWriter(IPathManager pathManager)
     {
         PBSConfig pbsConfig = new PBSConfig(

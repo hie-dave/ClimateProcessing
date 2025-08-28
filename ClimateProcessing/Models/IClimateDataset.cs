@@ -2,8 +2,6 @@ using ClimateProcessing.Services;
 
 namespace ClimateProcessing.Models;
 
-public record VariableInfo(string Name, string Units);
-
 /// <summary>
 /// An interface to a climate dataset.
 /// </summary>

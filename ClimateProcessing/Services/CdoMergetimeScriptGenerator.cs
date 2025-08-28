@@ -49,11 +49,7 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
         string remapOperator = GetRemapOperator(options.RemapAlgorithm);
         string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
 
-        // Note: we rename before changing the standard name, so the operator
-        // which changes the standard name must use the target variable name.
-        string setStdName = GetSetAttributeOperator(options.TargetMetadata.Name, stdNameAttr, options.StandardName);
-
-        string operators = $"{aggregation} {conversion} {setStdName} {rename} {unpack} {remap}";
+        string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
         operators = Regex.Replace(operators, " +", " ").Trim();
 
         await writer.WriteLineAsync("# File paths.");
@@ -87,8 +83,6 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
                 await writer.WriteLineAsync("# - Unpack data.");
             if (!string.IsNullOrEmpty(rename))
                 await writer.WriteLineAsync($"# - Rename variable from {options.InputMetadata.Name} to {options.TargetMetadata.Name}.");
-            if (!string.IsNullOrEmpty(setStdName))
-                await writer.WriteLineAsync($"# - Set standard name to {options.StandardName}.");
             if (!string.IsNullOrEmpty(conversion))
                 await writer.WriteLineAsync($"# - Convert units from {options.InputMetadata.Units} to {options.TargetMetadata.Units}.");
             if (!string.IsNullOrEmpty(aggregation))

@@ -25,11 +25,6 @@ public interface IMergetimeOptions
     VariableInfo TargetMetadata { get; }
 
     /// <summary>
-    /// The standard name of the target variable as required by the model.
-    /// </summary>
-    string StandardName { get; }
-
-    /// <summary>
     /// The time step of the input variable.
     /// </summary>
     TimeStep InputTimeStep { get; }

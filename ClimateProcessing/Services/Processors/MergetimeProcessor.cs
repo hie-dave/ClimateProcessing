@@ -95,8 +95,7 @@ public class MergetimeProcessor : IVariableProcessor
             context.Remapper.GetInterpolationAlgorithm(inputMetadata, TargetVariable),
             false,
             false,
-            dataset,
-            context.VariableManager.GetStandardName(TargetVariable)
+            dataset
         );
 
         await scriptGenerator.WriteMergetimeScriptAsync(writer, opts);

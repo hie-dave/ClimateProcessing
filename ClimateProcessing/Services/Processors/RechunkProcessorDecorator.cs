@@ -106,6 +106,8 @@ public class RechunkProcessorDecorator : IVariableProcessor
             // TODO: can we always remove inputs? Right now, yes. In general,
             // maybe not.
             true,
+            context.VariableManager.GetOutputRequirements(TargetVariable).Name,
+            context.VariableManager.GetMetadata(TargetVariable),
             context.PathManager
         );
 

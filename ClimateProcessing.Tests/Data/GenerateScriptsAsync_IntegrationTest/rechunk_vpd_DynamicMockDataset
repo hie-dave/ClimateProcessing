@@ -43,6 +43,10 @@ log "Rechunking files..."
 ncpdq -O -a lat,lon,time --cnk_dmn lat,24 --cnk_dmn lon,24 --cnk_dmn time,8192 -L8 "${IN_FILE}" "${OUT_FILE}"
 log "All files rechunked successfully."
 
+log "Updating metadata..."
+ncatted -O -a 'standard_name,vpd,o,c,water_vapor_saturation_deficit_in_air' -a 'long_name,vpd,o,c,Vapor Pressure Deficit' "${OUT_FILE}"
+log "Metadata updated successfully."
+
 # Calculate checksum.
 log "Calculating checksum..."
 cd "@#OUTPUT_DIRECTORY#@/output"

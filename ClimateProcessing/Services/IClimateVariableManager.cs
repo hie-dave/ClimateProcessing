@@ -28,10 +28,10 @@ public interface IClimateVariableManager
     AggregationMethod GetAggregationMethod(ClimateVariable variable);
 
     /// <summary>
-    /// Get the standard name of the specified variable required by the model.
+    /// Get the metadata of the specified variable required by the model.
     /// </summary>
     /// <param name="variable">The variable.</param>
-    /// <returns>The standard_name of the variable.</returns>
+    /// <returns>The metadata of the variable.</returns>
     /// <exception cref="ArgumentException">If no configuration is found for the specified variable.</exception>
-    string GetStandardName(ClimateVariable variable);
+    VariableMetadata GetMetadata(ClimateVariable variable);
 }

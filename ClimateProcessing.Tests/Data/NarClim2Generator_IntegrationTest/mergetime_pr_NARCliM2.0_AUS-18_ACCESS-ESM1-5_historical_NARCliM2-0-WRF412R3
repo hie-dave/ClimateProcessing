@@ -56,11 +56,10 @@ log "Successfully corrected all rlon values."
 
 # Perform corrective operations on input files:
 # - Unpack data.
-# - Set standard name to precipitation_amount.
 # - Convert units from kg m-2 s-1 to mm.
 for FILE in "${IN_DIR}"/*.nc
 do
-    cdo -L -O -v -z zip1 -mulc,10800 -setattribute,'pr@units=mm' -setattribute,'pr@standard_name=precipitation_amount' -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
+    cdo -L -O -v -z zip1 -mulc,10800 -setattribute,'pr@units=mm' -unpack "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
 done
 IN_DIR="${MOD_DIR}"
 
