@@ -61,19 +61,23 @@ public sealed class MergetimeProcessorTests : IDisposable
         string inputDir = Path.Combine(datasetPath, "input");
         const string outputDirectory = "o";
         const string outputFileName = "tas_timeseries.nc";
-        string outputFile = Path.Combine(workingDirectory.AbsolutePath, "tmp", outputDirectory, outputFileName);
+        const string datasetName = "TestDataset";
+        string outDir = Path.Combine(workingDirectory.AbsolutePath, "tmp", outputDirectory);
+        string outputFile = Path.Combine(outDir, datasetName, outputFileName);
 
         // Mock dataset
         var mockDataset = new Mock<IClimateDataset>();
-        mockDataset.Setup(d => d.DatasetName).Returns("TestDataset");
+        mockDataset.Setup(d => d.DatasetName).Returns(datasetName);
         mockDataset.Setup(d => d.GetOutputDirectory()).Returns(outputDirectory);
         mockDataset.Setup(d => d.GetInputFilesDirectory(targetVariable)).Returns(inputDir);
         mockDataset.Setup(d => d.GenerateOutputFileName(targetVariable, It.IsAny<VariableInfo>())).Returns(outputFileName);
-        
+
         VariableInfo variableInfo = new("tas", "K");
         mockDataset.Setup(d => d.GetVariableInfo(targetVariable)).Returns(variableInfo);
 
         TestJobCreationContext context = new TestJobCreationContext(ModelVersion.Trunk, workingDirectory.AbsolutePath);
+        context.MockPathManager.SetOutputFileName(targetVariable, outputFileName);
+        context.MockPathManager.SetBasePath(PathType.Working, outDir);
 
         // Setup script generator to verify options
         mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))

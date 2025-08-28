@@ -200,13 +200,28 @@ public class MeanProcessorTests
     }
 
     [Fact]
+    public async Task CreateJobsAsync_WithOutputFileConflict_ThrowsArgumentException()
+    {
+        // Ensure that a MeanProcessor configured to use one of its input files
+        // as the output file path will throw an exception.
+        ClimateVariable variable = ClimateVariable.Temperature;
+        IEnumerable<ClimateVariable> deps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
+        TestJobCreationContext context = new TestJobCreationContext();
+        MeanProcessor processor = new MeanProcessor("MinTemperature.nc", variable, deps);
+
+        DynamicMockDataset dataset = new DynamicMockDataset("/in", "/out");
+        ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () => await processor.CreateJobsAsync(dataset, context));
+        Assert.Contains("conflict", exception.Message);
+    }
+
+    [Fact]
     public async Task EquationFile_LinesEndInSemicolon()
     {
         const string outFileName = "asdf";
         MeanProcessor processor = new MeanProcessor(outFileName, targetVariable, dependencies);
 
         DynamicMockDataset dataset = new DynamicMockDataset("/in", "/out");
-        TestContext context = new TestContext();
+        TestJobCreationContext context = new TestJobCreationContext();
         context.ConfigureDependency(ClimateVariableFormat.Timeseries(ClimateVariable.MinTemperature));
         context.ConfigureDependency(ClimateVariableFormat.Timeseries(ClimateVariable.MaxTemperature));
 

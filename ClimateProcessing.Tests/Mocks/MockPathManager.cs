@@ -7,12 +7,16 @@ public class MockPathManager : IPathManager
 {
     private Action<IClimateDataset> createDirectoryTreeAction = _ => { };
     private readonly Dictionary<PathType, string> basePaths = new();
+    private readonly Dictionary<ClimateVariable, string> fileNames = new();
     private string checksumFilePath = string.Empty;
 
     public MockPathManager()
     {
         foreach (PathType type in Enum.GetValues<PathType>())
             basePaths[type] = Enum.GetName(type)!;
+
+        foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
+            fileNames[variable] = $"{Enum.GetName(variable)}.nc";
     }
 
     public void SetCreateDirectoryTreeAction(Action<IClimateDataset> action)
@@ -49,11 +53,22 @@ public class MockPathManager : IPathManager
 
     public string GetDatasetFileName(IClimateDataset dataset, ClimateVariable variable, PathType type, IClimateVariableManager variableManager)
     {
-        return Path.Combine(GetDatasetPath(dataset, type), $"{Enum.GetName(variable)!}.nc");
+        return Path.Combine(GetDatasetPath(dataset, type), fileNames[variable]);
     }
 
     public string GetDatasetPath(IClimateDataset dataset, PathType type)
     {
         return Path.Combine(GetBasePath(type), dataset.DatasetName);
+    }
+
+    public void SetBasePath(string path)
+    {
+        foreach (PathType type in Enum.GetValues<PathType>())
+            SetBasePath(type, path);
+    }
+
+    public void SetOutputFileName(ClimateVariable variable, string fileName)
+    {
+        fileNames[variable] = fileName;
     }
 }

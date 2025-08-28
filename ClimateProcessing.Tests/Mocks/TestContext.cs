@@ -5,14 +5,17 @@ using Moq;
 
 namespace ClimateProcessing.Tests.Mocks;
 
-public class TestContext : IJobCreationContext
+public class TestJobCreationContext : IJobCreationContext
 {
     private readonly InMemoryScriptWriterFactory scriptWriterFactory;
     private readonly Mock<IDependencyResolver> mockDependencyResolver;
+    public MockPathManager MockPathManager { get; private init; }
 
-    public ProcessingConfig Config { get; set; }
+    internal TestProcessingConfig MutableConfig { get; set; }
 
-    public IPathManager PathManager { get; set; }
+    public ProcessingConfig Config => MutableConfig;
+
+    public IPathManager PathManager => MockPathManager;
 
     public IFileWriterFactory FileWriterFactory => scriptWriterFactory;
 
@@ -26,15 +29,19 @@ public class TestContext : IJobCreationContext
 
     public IDependencyResolver DependencyResolver => mockDependencyResolver.Object;
 
-    public TestContext()
+    public TestJobCreationContext() : this(ModelVersion.Trunk) { }
+
+    public TestJobCreationContext(ModelVersion version)
     {
         scriptWriterFactory = new InMemoryScriptWriterFactory();
 
-        ModelVersion version = ModelVersion.Trunk;
+        MutableConfig = new TestProcessingConfig();
+        MutableConfig.Version = version;
+        MutableConfig.InputTimeStepHours = 24;
+        MutableConfig.OutputTimeStepHours = 24;
 
-        Config = new TestProcessingConfig();
-        Config.Version = version;
-        PathManager = new MockPathManager();
+        MockPathManager = new MockPathManager();
+
         VariableManager = new ClimateVariableManager(version);
         Remapper = new RemappingService(); // TODO: mock?
         mockDependencyResolver = new Mock<IDependencyResolver>();
@@ -53,7 +60,12 @@ public class TestContext : IJobCreationContext
                 });
         PBSLightweight = mockHeaderWriter.Object;
         PBSHeavyweight = mockHeaderWriter.Object;
+    }
 
+    public TestJobCreationContext(ModelVersion version, string outputDirectory)
+        : this(version)
+    {
+        MockPathManager.SetBasePath(outputDirectory);
     }
 
     public string ReadScript(Job job)
