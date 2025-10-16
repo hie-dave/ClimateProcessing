@@ -1,6 +1,8 @@
 using Xunit;
 using ClimateProcessing.Models;
 using System.IO;
+using ClimateProcessing.Services.Processors;
+using ClimateProcessing.Tests.Mocks;
 
 namespace ClimateProcessing.Tests.Models;
 
@@ -303,5 +305,47 @@ public class NarClim2DatasetTests : IDisposable
             NarClim2RCM.WRF412R3,
             NarClim2Frequency.Hour1);
         Assert.Equal(inputPath, dataset.BasePath);
+    }
+
+    [Fact]
+    public void GetProcessors_WhenOutputTimeStepIsDaily_IncludesMinAndMaxTemperature()
+    {
+        // Context defaults to Trunk with 24h timestep.
+        var context = new TestJobCreationContext(ModelVersion.Trunk);
+        context.MutableConfig.OutputTimeStepHours = 24;
+
+        var dataset = new NarClim2Dataset("/input");
+
+        List<StandardVariableProcessor> processors = dataset
+            .GetProcessors(context)
+            .OfType<StandardVariableProcessor>()
+            .ToList();
+        HashSet<ClimateVariable> variables = processors
+            .Select(p => p.TargetVariable)
+            .ToHashSet();
+
+        Assert.Contains(ClimateVariable.MinTemperature, variables);
+        Assert.Contains(ClimateVariable.MaxTemperature, variables);
+    }
+
+    [Fact]
+    public void GetProcessors_WhenOutputTimeStepIsSubdaily_DoesNotIncludeMinOrMaxTemperature()
+    {
+        // Set subdaily timestep
+        var context = new TestJobCreationContext(ModelVersion.Trunk);
+        context.MutableConfig.OutputTimeStepHours = 3;
+
+        var dataset = new NarClim2Dataset("/input");
+
+        List<StandardVariableProcessor> processors = dataset
+            .GetProcessors(context)
+            .OfType<StandardVariableProcessor>()
+            .ToList();
+        HashSet<ClimateVariable> variables = processors
+            .Select(p => p.TargetVariable)
+            .ToHashSet();
+
+        Assert.DoesNotContain(ClimateVariable.MinTemperature, variables);
+        Assert.DoesNotContain(ClimateVariable.MaxTemperature, variables);
     }
 }
