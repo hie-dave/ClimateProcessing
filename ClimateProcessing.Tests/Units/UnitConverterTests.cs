@@ -64,6 +64,8 @@ public class UnitConverterTests
     [InlineData("mm d-1", "mm", 1, "-divc,24")] // mm/day -> mm/hr: divide by 24
     [InlineData("mm d-1", "mm", 3, "-divc,8")] // mm/day -> mm/3hr: divide by 8
     [InlineData("%", "1", 1, "-divc,100")]
+    [InlineData("Mj/m2", "W m-2", 24, "-divc,0.0864")] // Mj/day -> W: divide by 0.0864
+    [InlineData("Mj/m2", "W m-2", 1, "-divc,0.0036")] // Mj/hr -> W: divide by 0.0036
     public void GenerateConversionExpression_GeneratesCorrectExpressions(
         string inputUnits,
         string targetUnits,
