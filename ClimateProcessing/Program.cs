@@ -7,7 +7,7 @@ using ClimateProcessing.Configuration;
 [assembly: InternalsVisibleTo("ClimateProcessing.Tests")]
 
 // Parse command line arguments
-var result = Parser.Default.ParseArguments<NarClim2Config, CordexConfig>(args);
+var result = Parser.Default.ParseArguments<NarClim2Config, CordexConfig, SiloConfig>(args);
 
 await result.WithParsedAsync(async config =>
 {
