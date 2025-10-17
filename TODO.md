@@ -21,6 +21,16 @@
   output requirements (e.g. name, units, agg. method, etc)
 - Ensure in MeanProcessor's equation file, all lines end in semicolon
 - Ensure output files are renamed correctly by Narclim2Dataset
+- Running CSIRO + BARPA-R not supported
+- Improve unit normalisation logic:
+  - Collapse whitespace
+  - Normalise multiplication (e.g. m.s-1 == m s-1)
+  - Normalise "per" representations (e.g. m s-1 == m/s)
+  - Normalise exponents (e.g. m^-2 -> m-2)?
+  - Handle some basic unicodes (e.g. °C, ℃ -> degC, μmol -> umol)
+- Improve data structure used for unit synonyms. Having a collection of hashsets
+  would make more sense. Having a key-array pair doesn't make sense because the
+  key must be part of the array anyway
 
 ### Cordex Dataset tests
 
