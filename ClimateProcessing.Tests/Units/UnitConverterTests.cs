@@ -61,6 +61,7 @@ public class UnitConverterTests
     [InlineData("mm", "mm", 6, "")] // No conversion required
     [InlineData("kPa", "Pa", 1, "-mulc,1000")]
     [InlineData("degC", "K", 1, "-addc,273.15")]
+    [InlineData("Celsius", "K", 1, "-addc,273.15")]
     [InlineData("mm d-1", "mm", 1, "-divc,24")] // mm/day -> mm/hr: divide by 24
     [InlineData("mm d-1", "mm", 3, "-divc,8")] // mm/day -> mm/3hr: divide by 8
     [InlineData("%", "1", 1, "-divc,100")]

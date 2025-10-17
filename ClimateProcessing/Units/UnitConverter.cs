@@ -74,6 +74,19 @@ public static class UnitConverter
         if (ConversionExpressions.TryGetValue(conversionKey, out var conversion))
             return new ConversionResult(true, true, conversion);
 
+        IEnumerable<string> inputSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedInput)).Select(s => s.Key);
+        IEnumerable<string> targetSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedTarget)).Select(s => s.Key);
+
+        foreach (string inputSynonym in inputSynonyms)
+        {
+            foreach (string targetSynonym in targetSynonyms)
+            {
+                var synonymConversionKey = (inputSynonym, targetSynonym);
+                if (ConversionExpressions.TryGetValue(synonymConversionKey, out var synonymConversion))
+                    return new ConversionResult(true, true, synonymConversion);
+            }
+        }
+
         throw new ArgumentException($"Unsupported unit conversion from {inputUnits} to {targetUnits}");
     }
 
