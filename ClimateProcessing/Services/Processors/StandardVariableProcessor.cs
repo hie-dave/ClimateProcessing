@@ -151,7 +151,10 @@ public class StandardVariableProcessor : IVariableProcessor
         IJobCreationContext context,
         Job mergetimeJob)
     {
-        VariableInfo varInfo = dataset.GetVariableInfo(TargetVariable);
+        // In the standard processing pipeline, the renaming is handled by the
+        // mergetime script. The rechunk script must therefore use the output
+        // variable name.
+        VariableInfo varInfo = context.VariableManager.GetOutputRequirements(TargetVariable);
 
         string jobName = GetJobName("rechunk", varInfo, dataset);
         string inFile = context.PathManager.GetDatasetFileName(dataset, TargetVariable, PathType.Working, context.VariableManager);
