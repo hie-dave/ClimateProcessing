@@ -1,17 +1,11 @@
 using Xunit;
 using ClimateProcessing.Services;
 using ClimateProcessing.Models;
-using ClimateProcessing.Units;
-using System.Text.RegularExpressions;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel.Engine.ClientProtocol;
 using ClimateProcessing.Tests.Mocks;
-using System.Reflection;
-using ClimateProcessing.Configuration;
 using Xunit.Abstractions;
 
 using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 using static ClimateProcessing.Tests.Helpers.ResourceHelpers;
-using Moq;
 using ClimateProcessing.Tests.Helpers;
 using ClimateProcessing.Services.Processors;
 
@@ -19,17 +13,14 @@ namespace ClimateProcessing.Tests.Services;
 
 public class ScriptOrchestratorTests : IDisposable
 {
-    private const string outputDirectoryPrefix = "script_generator_tests_output";
     private readonly ITestOutputHelper outputHelper;
-    private readonly string outputDirectory;
+    private readonly TempDirectory tempDirectory;
     private readonly NarClim2Config _config;
-
-    private readonly ScriptOrchestrator _generator;
 
     public ScriptOrchestratorTests(ITestOutputHelper outputHelper)
     {
         this.outputHelper = outputHelper;
-        outputDirectory = CreateOutputDirectory();
+        tempDirectory = TempDirectory.Create(GetType().Name);
 
         _config = new NarClim2Config()
         {
@@ -38,12 +29,10 @@ public class ScriptOrchestratorTests : IDisposable
             Walltime = "01:00:00",
             Ncpus = 1,
             Memory = 4,
-            OutputDirectory = outputDirectory,
+            OutputDirectory = tempDirectory.AbsolutePath,
             InputTimeStepHours = 1,
             OutputTimeStepHours = 24
         };
-
-        _generator = new ScriptOrchestrator(_config);
     }
 
     /// <summary>
@@ -51,20 +40,7 @@ public class ScriptOrchestratorTests : IDisposable
     /// </summary>
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(outputDirectory, true);
-        }
-        catch (IOException error)
-        {
-            // Log an error but don't throw an exception.
-            Console.Error.WriteLine($"Warning: could not delete temporary output directory used by {GetType().Name}: {error}");
-        }
-    }
-
-    private static string CreateOutputDirectory()
-    {
-        return Directory.CreateTempSubdirectory(outputDirectoryPrefix).FullName;
+        tempDirectory.Dispose();
     }
 
     [Theory]
@@ -80,7 +56,7 @@ public class ScriptOrchestratorTests : IDisposable
             Walltime = "01:00:00",
             Ncpus = 1,
             Memory = 4,
-            OutputDirectory = outputDirectory,
+            OutputDirectory = tempDirectory.AbsolutePath,
             InputDirectory = "/input",
             Version = requiresVPD ? ModelVersion.Dave : ModelVersion.Trunk,
             InputTimeStepHours = 1,
@@ -130,7 +106,7 @@ public class ScriptOrchestratorTests : IDisposable
     {
         string script = Path.GetTempFileName();
         await File.WriteAllLinesAsync(script, ["#!/usr/bin/bash", "echo x"]);
-        string wrapper = await ScriptOrchestrator.GenerateWrapperScript(outputDirectory, [script]);
+        string wrapper = await ScriptOrchestrator.GenerateWrapperScript(tempDirectory.AbsolutePath, [script]);
         string output = await File.ReadAllTextAsync(wrapper);
 
         // The wrapper script should call each subscript passed into it.
@@ -169,7 +145,7 @@ public class ScriptOrchestratorTests : IDisposable
         const VPDMethod method = VPDMethod.AlduchovEskridge1996;
 
         const string inputDirectory = "/input";
-        DynamicMockDataset dataset = new(inputDirectory, outputDirectory);
+        DynamicMockDataset dataset = new(inputDirectory, tempDirectory.AbsolutePath);
         dataset.SetProcessors([
             new StandardVariableProcessor(ClimateVariable.SpecificHumidity),
             new StandardVariableProcessor(ClimateVariable.Precipitation),
@@ -187,7 +163,7 @@ public class ScriptOrchestratorTests : IDisposable
             Ncpus = 2,
             Memory = 64,
             InputDirectory = inputDirectory,
-            OutputDirectory = outputDirectory,
+            OutputDirectory = tempDirectory.AbsolutePath,
             InputTimeStepHours = 1,
             OutputTimeStepHours = 3,
             Version = ModelVersion.Dave,
@@ -208,12 +184,12 @@ public class ScriptOrchestratorTests : IDisposable
         await generator.GenerateScriptsAsync(dataset);
 
         // Assert.
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "logs"));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "streams"));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "output", dataset.GetOutputDirectory()));
-        AssertEmptyDirectory(Path.Combine(outputDirectory, "tmp", dataset.GetOutputDirectory()));
+        AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "logs"));
+        AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "streams"));
+        AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "output", dataset.GetOutputDirectory()));
+        AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "tmp", dataset.GetOutputDirectory()));
 
-        string scriptsDirectory = Path.Combine(outputDirectory, "scripts");
+        string scriptsDirectory = Path.Combine(tempDirectory.AbsolutePath, "scripts");
         Assert.True(Directory.Exists(scriptsDirectory));
         Assert.NotEmpty(Directory.EnumerateFileSystemEntries(scriptsDirectory));
 
@@ -249,7 +225,7 @@ public class ScriptOrchestratorTests : IDisposable
 
             // Read expected script from resource in assembly.
             string expectedScript = await ReadResourceAsync($"{resourcePrefix}.{scriptName}");
-            expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", outputDirectory);
+            expectedScript = expectedScript.Replace("@#OUTPUT_DIRECTORY#@", tempDirectory.AbsolutePath);
 
             // No custom error messages in xunit, apparently.
             if (expectedScript != actualScript)

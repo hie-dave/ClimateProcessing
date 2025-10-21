@@ -8,41 +8,44 @@ namespace ClimateProcessing.Tests.Models;
 
 public class NarClim2DatasetTests : IDisposable
 {
-    private readonly string _testDir;
+    private readonly TempDirectory tempDirectory;
     private readonly NarClim2Dataset dataset;
 
-    private readonly NarClim2Domain _domain;
-    private readonly NarClim2GCM _gcm;
-    private readonly NarClim2Experiment _experiment;
-    private readonly NarClim2RCM _rcm;
-    private readonly NarClim2Frequency _frequency;
+    private readonly NarClim2Domain domain;
+    private readonly NarClim2GCM gcm;
+    private readonly NarClim2Experiment experiment;
+    private readonly NarClim2RCM rcm;
+    private readonly NarClim2Frequency frequency;
 
     public NarClim2DatasetTests()
     {
         // TOOD: test other parameters?
-        _testDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        _domain = NarClim2Domain.AUS18;
-        _gcm = NarClim2GCM.AccessEsm15;
-        _rcm = NarClim2RCM.WRF412R3;
-        _experiment = NarClim2Experiment.Historical;
-        _frequency = NarClim2Frequency.Day;
+        tempDirectory = TempDirectory.Create(GetType().Name);
+
+        domain = NarClim2Domain.AUS18;
+        gcm = NarClim2GCM.AccessEsm15;
+        rcm = NarClim2RCM.WRF412R3;
+        experiment = NarClim2Experiment.Historical;
+        frequency = NarClim2Frequency.Day;
 
         string baseDir = Path.Combine(
-            _testDir,
+            tempDirectory.AbsolutePath,
             NarClim2Constants.Paths.MipEra,
             NarClim2Constants.Paths.ActivityId,
-            NarClim2Constants.DomainNames.ToString(_domain),
+            NarClim2Constants.DomainNames.ToString(domain),
             NarClim2Constants.Paths.Institution,
-            NarClim2Constants.GCMNames.ToString(_gcm),
-            NarClim2Constants.ExperimentNames.ToString(_experiment),
-            NarClim2Constants.VariantLabels.GetVariantLabel(_gcm),
-            NarClim2Constants.RCMNames.ToString(_rcm),
+            NarClim2Constants.GCMNames.ToString(gcm),
+            NarClim2Constants.ExperimentNames.ToString(experiment),
+            NarClim2Constants.VariantLabels.GetVariantLabel(gcm),
+            NarClim2Constants.RCMNames.ToString(rcm),
             NarClim2Constants.Paths.Version,
-            NarClim2Constants.FrequencyNames.ToString(_frequency));
+            NarClim2Constants.FrequencyNames.ToString(frequency));
 
         // Create directories for each variable
         foreach (string var in new[] { "tas", "pr" })
         {
+            // This is inside the temp directory and will therefore be deleted
+            // when Dispose() runs.
             string varDir = Path.Combine(baseDir, var, NarClim2Constants.Paths.LatestVersion);
             Directory.CreateDirectory(varDir);
 
@@ -52,18 +55,17 @@ public class NarClim2DatasetTests : IDisposable
         }
 
         dataset = new NarClim2Dataset(
-            _testDir,
-            domain: _domain,
-            gcm: _gcm,
-            rcm: _rcm,
-            frequency: _frequency,
-            experiment: _experiment);
+            tempDirectory.AbsolutePath,
+            domain: domain,
+            gcm: gcm,
+            rcm: rcm,
+            frequency: frequency,
+            experiment: experiment);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_testDir))
-            Directory.Delete(_testDir, true);
+        tempDirectory.Dispose();
     }
 
     private void CreateTestFile(string filepath)
@@ -135,7 +137,7 @@ public class NarClim2DatasetTests : IDisposable
     public void GenerateOutputFileName_ForMissingVariable_ThrowsException()
     {
         // Create dataset pointing to empty directory
-        var emptyDir = Path.Combine(_testDir, "empty");
+        var emptyDir = Path.Combine(tempDirectory.AbsolutePath, "empty");
         Directory.CreateDirectory(emptyDir);
         var emptyDataset = new NarClim2Dataset(emptyDir);
 

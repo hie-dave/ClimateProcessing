@@ -4,23 +4,27 @@ using Xunit;
 
 namespace ClimateProcessing.Tests.Models;
 
-public class NarClim2ConfigTests
+public class NarClim2ConfigTests : IDisposable
 {
-    private readonly string _validInputDir;
+    private readonly TempDirectory tempDirectory;
     private readonly string _validProject;
 
     public NarClim2ConfigTests()
     {
-        _validInputDir = Path.Combine(Path.GetTempPath(), "test_input");
-        Directory.CreateDirectory(_validInputDir);
+        tempDirectory = TempDirectory.Create(GetType().Name);
         _validProject = "test_project";
+    }
+
+    public void Dispose()
+    {
+        tempDirectory.Dispose();
     }
 
     private NarClim2Config CreateValidConfig()
     {
         return new NarClim2Config
         {
-            InputDirectory = _validInputDir,
+            InputDirectory = tempDirectory.AbsolutePath,
             Project = _validProject,
             InputTimeStepHours = 24,
             OutputTimeStepHours = 24,

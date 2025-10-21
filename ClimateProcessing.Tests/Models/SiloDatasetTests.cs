@@ -132,7 +132,7 @@ public class SiloDatasetTests : IDisposable
     public void GetProcessors_ReturnsExpectedProcessors()
     {
         SiloDataset dataset = CreateDataset();
-        IJobCreationContext context = CreateContext();
+        IJobCreationContext context = new TestJobCreationContext();
 
         // Create min/max tas & rel. humidity files so we can generate output names for the mean processors
         const int nfiles = 4;
@@ -154,7 +154,7 @@ public class SiloDatasetTests : IDisposable
     [Fact]
     public void EnsureOutputFiles_UseRenamedVariableNames()
     {
-        IJobCreationContext context = CreateContext();
+        IJobCreationContext context = new TestJobCreationContext();
         SiloDataset dataset = CreateDataset();
 
         const int nfiles = 16;
@@ -245,25 +245,6 @@ public class SiloDatasetTests : IDisposable
     private void AssertContains(IEnumerable<IVariableProcessor> processors, ClimateVariable variable)
     {
         Assert.Contains(processors, p => p.OutputFormat.Variable == variable && p.OutputFormat.Stage == ProcessingStage.Rechunked);
-    }
-
-    private IJobCreationContext CreateContext(ModelVersion version = ModelVersion.Trunk)
-    {
-        ProcessingConfig mockConfig = new TestProcessingConfig();
-        mockConfig.Version = version;
-
-        PBSConfig config = new PBSConfig("q", 1, 1, 1, "", PBSWalltime.Parse("01:00:00"), EmailNotificationType.None, "");
-
-        return new JobCreationContext(
-            mockConfig,
-            new PathManager(outputDirectory),
-            new InMemoryScriptWriterFactory(),
-            new ClimateVariableManager(version),
-            new PBSWriter(config, new PathManager(outputDirectory)),
-            new PBSWriter(config, new PathManager(outputDirectory)),
-            new RemappingService(),
-            new DependencyResolver()
-        );
     }
 
     private SiloDataset CreateDataset()

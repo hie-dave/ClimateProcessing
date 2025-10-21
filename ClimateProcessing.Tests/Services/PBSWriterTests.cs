@@ -2,20 +2,17 @@ using Xunit;
 using ClimateProcessing.Services;
 using ClimateProcessing.Models;
 using ClimateProcessing.Configuration;
-using Moq;
+using ClimateProcessing.Tests.Helpers;
 
 namespace ClimateProcessing.Tests.Services;
 
 public class PBSWriterTests : IDisposable
 {
-    private const string outputDirectoryPrefix = "climate_processing_pbs_writer_tests";
-    private readonly string outputDirectory;
-    private readonly PathManager pathManager;
+    private readonly TempDirectory tempDirectory;
 
     public PBSWriterTests()
     {
-        outputDirectory = CreateOutputDirectory();
-        pathManager = new PathManager(outputDirectory);
+        tempDirectory = TempDirectory.Create(GetType().Name);
     }
 
     /// <summary>
@@ -23,20 +20,7 @@ public class PBSWriterTests : IDisposable
     /// </summary>
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(outputDirectory, true);
-        }
-        catch (IOException error)
-        {
-            // Log an error but don't throw an exception.
-            Console.Error.WriteLine($"Warning: could not delete temporary output directory used by {GetType().Name}: {error}");
-        }
-    }
-
-    private static string CreateOutputDirectory()
-    {
-        return Directory.CreateTempSubdirectory(outputDirectoryPrefix).FullName;
+        tempDirectory.Dispose();
     }
 
     [Theory]
@@ -44,12 +28,7 @@ public class PBSWriterTests : IDisposable
     [InlineData(2, 192, 1024, "hugemem", "48:00:00", "asdf_name", "x987", null)]
     public async Task WritesPBSHeader(int ncpu, int memory, int jobfs, string queue, string walltime, string jobName, string project, string? email)
     {
-        // Arrange
-        StringWriter writer = new();
-        Mock<IFileWriter> fileWriterMock = new();
-        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
+        InMemoryScriptWriter writer = new InMemoryScriptWriter();
         PBSConfig config = new(
             queue,
             ncpu,
@@ -59,12 +38,11 @@ public class PBSWriterTests : IDisposable
             PBSWalltime.Parse(walltime),
             EmailNotificationType.After | EmailNotificationType.Before | EmailNotificationType.Aborted,
             email);
-        PathManager pathManager = new PathManager(outputDirectory);
+        PathManager pathManager = new PathManager(tempDirectory.AbsolutePath);
         PBSWriter generator = new(config, pathManager);
 
-        // Act
-        await generator.WriteHeaderAsync(fileWriterMock.Object, jobName, Array.Empty<PBSStorageDirective>());
-        string result = writer.ToString();
+        await generator.WriteHeaderAsync(writer, jobName, Array.Empty<PBSStorageDirective>());
+        string result = writer.GetContent();
 
         // Assert
         Assert.Contains($"#PBS -N {jobName}", result);
@@ -111,11 +89,7 @@ public class PBSWriterTests : IDisposable
         params string[] filePaths)
     {
         // Arrange
-        StringWriter writer = new();
-        Mock<IFileWriter> fileWriterMock = new();
-        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
+        InMemoryScriptWriter writer = new();
         PBSConfig config = new(
             "normal",
             2,
@@ -124,14 +98,14 @@ public class PBSWriterTests : IDisposable
             "p123",
             new PBSWalltime(1, 0, 0)
         );
-        PathManager pathManager = new PathManager(outputDirectory);
+        PathManager pathManager = new PathManager(tempDirectory.AbsolutePath);
         PBSWriter generator = new(config, pathManager);
         IEnumerable<PBSStorageDirective> directives =
             PBSStorageHelper.GetStorageDirectives(filePaths);
 
         // Act
-        await generator.WriteHeaderAsync(fileWriterMock.Object, "test_job", directives);
-        string result = writer.ToString();
+        await generator.WriteHeaderAsync(writer, "test_job", directives);
+        string result = writer.GetContent();
 
         // Assert
         // Verify basic header elements are present
@@ -174,11 +148,7 @@ public class PBSWriterTests : IDisposable
         EmailNotificationType emailNotifications,
         string expected)
     {
-        StringWriter writer = new();
-        Mock<IFileWriter> fileWriterMock = new();
-        fileWriterMock.Setup(fw => fw.WriteAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync(It.IsAny<string>())).Callback<string>(s => writer.WriteLine(s));
-        fileWriterMock.Setup(fw => fw.WriteLineAsync()).Callback(writer.WriteLine);
+        InMemoryScriptWriter writer = new();
         PBSConfig config = new(
             "normal",
             2,
@@ -189,11 +159,11 @@ public class PBSWriterTests : IDisposable
             emailNotifications,
             "test@example.com"
         );
-        PathManager pathManager = new PathManager(outputDirectory);
+        PathManager pathManager = new PathManager(tempDirectory.AbsolutePath);
         PBSWriter generator = new(config, pathManager);
 
-        await generator.WriteHeaderAsync(fileWriterMock.Object, "test_job", Array.Empty<PBSStorageDirective>());
-        string result = writer.ToString();
+        await generator.WriteHeaderAsync(writer, "test_job", Array.Empty<PBSStorageDirective>());
+        string result = writer.GetContent();
 
         string expectedDirective = $"#PBS -m {expected}";
         Assert.Contains(expectedDirective, result);
