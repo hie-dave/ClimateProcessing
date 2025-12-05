@@ -60,8 +60,7 @@ public class CordexDatasetTests : IDisposable
         CordexDataset dataset = CreateDataset(activity, institution, gcm, experiment, source, version);
         string expected = Path.Combine(
             inputDirectory,
-            "output",
-            "CMIP6",
+            "output-CMIP6",
             activity.ToActivityId(),
             "AUST-05i",
             institution.ToInstitutionId(),

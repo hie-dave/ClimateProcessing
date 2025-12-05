@@ -17,24 +17,21 @@ namespace ClimateProcessing.Models;
 /// 
 ///    /g/data/kj66/CORDEX/
 ///       |-- <product>
-///          |-- <mip_era>
-///             |-- <activity_id>
-///                |-- <domain_id>
-///                   |-- <institution_id>
-///                      |-- <driving_source_id>
-///                         |-- <driving_experiment_id>
-///                            |-- <driving_variant_label>
-///                               |-- <source_id>
-///                                   |-- <version_realisation>
-///                                      |-- <freq>
-///                                         |-- <variable_id>
-///                                            |-- <version>
-///                                               |-- <netcdf_filename>
+///          |-- <activity_id>
+///             |-- <domain_id>
+///                |-- <institution_id>
+///                   |-- <driving_source_id>
+///                      |-- <driving_experiment_id>
+///                         |-- <driving_variant_label>
+///                            |-- <source_id>
+///                                |-- <version_realisation>
+///                                   |-- <freq>
+///                                      |-- <variable_id>
+///                                         |-- <version>
+///                                            |-- <netcdf_filename>
 ///    where,
 ///      <product> is:
-///          "output" (for all regridded data)
-///          "outputAdjust" (for all bias corrected/adjusted data)
-///      <mip-era> is "CMIP6"
+///          "output-CMIP6" (for all data)
 ///      <activity_id> is:
 ///          "DD" for dynamical downscaling (i.e. the regridded data)
 ///          "bias-adjusted-output" (for the bias corrected/adjusted data) 
@@ -121,11 +118,10 @@ public class CordexDataset : IClimateDataset
     /// </summary>
     /// <remarks>
     /// product is:
-    ///     "output" (for all regridded data)
-    ///     "outputAdjust" (for all bias corrected/adjusted data)
-    /// That said, only the "output" directory exists at the current time.
+    ///     "output-CMIP6" (for all regridded data)
+    /// That said, only the "output-CMIP6" directory exists at the current time.
     /// </remarks>
-    private const string product = "output";
+    private const string product = "output-CMIP6";
 
     /// <summary>
     /// The era of the dataset.
@@ -263,7 +259,6 @@ public class CordexDataset : IClimateDataset
         return Path.Combine(
             basePath,
             product,
-            era.ToEraId(),
             activity.ToActivityId(),
             domain.ToDomainId(),
             institution.ToInstitutionId(),
