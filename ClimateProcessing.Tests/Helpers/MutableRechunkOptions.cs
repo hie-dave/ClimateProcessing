@@ -48,7 +48,7 @@ public class MutableRechunkOptions : IRechunkOptions
     /// <summary>
     /// The metadata to use.
     /// </summary>
-    public VariableMetadata Metadata { get; set; } = new VariableMetadata("standard", "long");
+    public VariableMetadata Metadata { get; set; } = new VariableMetadata("standard", "long", "kg");
 
     /// <summary>
     /// The path manager to use for file paths.

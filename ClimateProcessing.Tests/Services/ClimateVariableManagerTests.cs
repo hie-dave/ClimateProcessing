@@ -118,16 +118,29 @@ public class ClimateVariableManagerTests
     }
 
     [Theory]
-    [InlineData(ModelVersion.Trunk)]
-    [InlineData(ModelVersion.Dave)]
-    public void GetMetadata_DoesNotThrowForValidVariable(ModelVersion version)
+    [InlineData(ModelVersion.Dave, ClimateVariable.Temperature)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.Precipitation)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.SpecificHumidity)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.SurfacePressure)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.ShortwaveRadiation)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.WindSpeed)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.Vpd)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.Temperature)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.Precipitation)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.SpecificHumidity)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.SurfacePressure)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.ShortwaveRadiation)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.WindSpeed)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.MaxTemperature)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.MinTemperature)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.RelativeHumidity)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.MinRelativeHumidity)]
+    [InlineData(ModelVersion.Trunk, ClimateVariable.MaxRelativeHumidity)]
+    public void GetMetadata_DoesNotThrowForValidVariable(ModelVersion version, ClimateVariable variable)
     {
         ClimateVariableManager manager = new ClimateVariableManager(version);
-        foreach (ClimateVariable variable in Enum.GetValues<ClimateVariable>())
-        {
-            Exception ex = Record.Exception(() => manager.GetMetadata(variable));
-            Assert.Null(ex);
-        }
+        Exception ex = Record.Exception(() => manager.GetMetadata(variable));
+        Assert.Null(ex);
     }
 
     [Theory]

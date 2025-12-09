@@ -168,7 +168,8 @@ public class ClimateVariableManager : IClimateVariableManager
     {
         string standardName = GetStandardName(variable);
         string longName = GetLongName(variable);
-        return new VariableMetadata(standardName, longName);
+        string units = GetTargetUnits(variable);
+        return new VariableMetadata(standardName, longName, units);
     }
 
     /// <summary>

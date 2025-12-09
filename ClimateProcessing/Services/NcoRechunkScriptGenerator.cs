@@ -20,6 +20,11 @@ public class NcoRechunkScriptGenerator : IRechunkScriptGenerator
     private const string longName = "long_name";
 
     /// <summary>
+    /// Name of the "units" attribute in the CF specification.
+    /// </summary>
+    private const string units = "units";
+
+    /// <summary>
     /// Creates a new rechunk script generator.
     /// </summary>
     public NcoRechunkScriptGenerator() { }
@@ -54,8 +59,9 @@ public class NcoRechunkScriptGenerator : IRechunkScriptGenerator
         // Update metadata.
         string stdNameOp = NcattedSpec(options.VariableName, standardName, options.Metadata.StandardName);
         string longNameOp = NcattedSpec(options.VariableName, longName, options.Metadata.LongName);
+        string unitsOp = NcattedSpec(options.VariableName, units, options.Metadata.Units);
         await writer.WriteLineAsync("log \"Updating metadata...\"");
-        await writer.WriteLineAsync($"ncatted -O {stdNameOp} {longNameOp} \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync($"ncatted -O {stdNameOp} {longNameOp} {unitsOp} \"${{OUT_FILE}}\"");
         await writer.WriteLineAsync("log \"Metadata updated successfully.\"");
         await writer.WriteLineAsync();
 
