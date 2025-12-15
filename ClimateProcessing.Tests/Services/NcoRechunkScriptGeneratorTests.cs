@@ -33,13 +33,13 @@ public class NcoRechunkScriptGeneratorTests
     }
 
     [Theory]
-    [InlineData("tasmin", "std_min_temp", "Minimum temperature")]
-    [InlineData("tasmax", "std_max_temp", "Maximum temperature")]
-    public async Task CreateJobsAsync_SetsStandardName(string varName, string stdName, string longName)
+    [InlineData("tasmin", "std_min_temp", "Minimum temperature", "degC")]
+    [InlineData("tasmax", "std_max_temp", "Maximum temperature", "K")]
+    public async Task CreateJobsAsync_SetsStandardName(string varName, string stdName, string longName, string units)
     {
         MutableRechunkOptions opts = new MutableRechunkOptions();
         opts.VariableName = varName;
-        opts.Metadata = new VariableMetadata(stdName, longName);
+        opts.Metadata = new VariableMetadata(stdName, longName, units);
 
         using InMemoryScriptWriter writer = new InMemoryScriptWriter();
         NcoRechunkScriptGenerator processor = new NcoRechunkScriptGenerator();
@@ -48,5 +48,6 @@ public class NcoRechunkScriptGeneratorTests
         string scriptContent = writer.GetContent();
         Assert.Contains($"-a 'standard_name,{varName},o,c,{stdName}'", scriptContent);
         Assert.Contains($"-a 'long_name,{varName},o,c,{longName}'", scriptContent);
+        Assert.Contains($"-a 'units,{varName},o,c,{units}'", scriptContent);
     }
 }

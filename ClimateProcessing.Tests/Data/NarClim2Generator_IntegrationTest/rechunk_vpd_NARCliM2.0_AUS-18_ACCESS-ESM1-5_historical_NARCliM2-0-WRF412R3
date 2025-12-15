@@ -42,7 +42,7 @@ ncpdq -O -a lat,lon,time --cnk_dmn lat,10 --cnk_dmn lon,10 --cnk_dmn time,5 -L4 
 log "All files rechunked successfully."
 
 log "Updating metadata..."
-ncatted -O -a 'standard_name,vpd,o,c,water_vapor_saturation_deficit_in_air' -a 'long_name,vpd,o,c,Vapor Pressure Deficit' "${OUT_FILE}"
+ncatted -O -a 'standard_name,vpd,o,c,water_vapor_saturation_deficit_in_air' -a 'long_name,vpd,o,c,Vapor Pressure Deficit' -a 'units,vpd,o,c,kPa' "${OUT_FILE}"
 log "Metadata updated successfully."
 
 # Calculate checksum.

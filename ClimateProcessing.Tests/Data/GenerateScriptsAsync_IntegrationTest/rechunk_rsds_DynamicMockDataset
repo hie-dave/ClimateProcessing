@@ -44,7 +44,7 @@ ncpdq -O -a lat,lon,time --cnk_dmn lat,24 --cnk_dmn lon,24 --cnk_dmn time,8192 -
 log "All files rechunked successfully."
 
 log "Updating metadata..."
-ncatted -O -a 'standard_name,rsds,o,c,surface_downwelling_shortwave_flux_in_air' -a 'long_name,rsds,o,c,Down-welling Shortwave Radiation' "${OUT_FILE}"
+ncatted -O -a 'standard_name,rsds,o,c,surface_downwelling_shortwave_flux_in_air' -a 'long_name,rsds,o,c,Down-welling Shortwave Radiation' -a 'units,rsds,o,c,W m-2' "${OUT_FILE}"
 log "Metadata updated successfully."
 
 # Calculate checksum.
