@@ -44,7 +44,6 @@ public class PBSWriterTests : IDisposable
         await generator.WriteHeaderAsync(writer, jobName, Array.Empty<PBSStorageDirective>());
         string result = writer.GetContent();
 
-        // Assert
         Assert.Contains($"#PBS -N {jobName}", result);
         Assert.Contains($"#PBS -P {project}", result);
         Assert.Contains($"#PBS -q {queue}", result);
@@ -75,7 +74,6 @@ public class PBSWriterTests : IDisposable
         string lastPBSLine = lines.Last(line => line.StartsWith("#PBS "));
         int lastPBSLineIndex = Array.LastIndexOf(lines, lastPBSLine);
 
-        // Assert that all lines before the last #PBS line are not empty.
         Assert.All(lines[0..lastPBSLineIndex], Assert.NotEmpty);
     }
 
@@ -88,7 +86,6 @@ public class PBSWriterTests : IDisposable
         int expectedDirectives,
         params string[] filePaths)
     {
-        // Arrange
         InMemoryScriptWriter writer = new();
         PBSConfig config = new(
             "normal",
@@ -103,11 +100,9 @@ public class PBSWriterTests : IDisposable
         IEnumerable<PBSStorageDirective> directives =
             PBSStorageHelper.GetStorageDirectives(filePaths);
 
-        // Act
         await generator.WriteHeaderAsync(writer, "test_job", directives);
         string result = writer.GetContent();
 
-        // Assert
         // Verify basic header elements are present
         Assert.Contains("#PBS -P p123", result);
         Assert.Contains("#PBS -q normal", result);

@@ -221,7 +221,6 @@ public class CordexDatasetTests : IDisposable
     public void GenerateOutputFileName_GeneratesValidFileName()
     {
         CordexDataset dataset = CreateDataset(gcm: CordexGcm.MpiEsm12HR);
-        // Actual file name in the dataset:
         // pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day_19600101-19601231.nc
         string prefix = "pr_AUST-05i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day";
         ClimateVariable variable = ClimateVariable.Precipitation;

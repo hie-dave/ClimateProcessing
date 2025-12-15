@@ -180,10 +180,8 @@ public class ScriptOrchestratorTests : IDisposable
         };
         ScriptOrchestrator generator = new(config);
 
-        // Act.
         await generator.GenerateScriptsAsync(dataset);
 
-        // Assert.
         AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "logs"));
         AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "streams"));
         AssertEmptyDirectory(Path.Combine(tempDirectory.AbsolutePath, "output", dataset.GetOutputDirectory()));

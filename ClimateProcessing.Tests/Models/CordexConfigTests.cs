@@ -91,7 +91,6 @@ public class CordexConfigTests
     public void Validate_ThrowsForUnusedVersion(CordexActivity activity, params CordexVersion[] versions)
     {
         // Generate a config with a version which is not supported by any
-        // activities.
         using TempDirectory tempDirectory = TempDirectory.Create();
         CordexConfig config = CreateValidConfig(tempDirectory);
         config.Activities = [activity.ToActivityId()];

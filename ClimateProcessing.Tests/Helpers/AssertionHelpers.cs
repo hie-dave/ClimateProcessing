@@ -8,7 +8,6 @@ namespace ClimateProcessing.Tests.Helpers;
 public static class AssertionHelpers
 {
     /// <summary>
-    /// Assert that the specified directory is empty.
     /// </summary>
     /// <param name="directory">The directory to assert is empty.</param>
     public static void AssertEmptyDirectory(string directory)
