@@ -27,9 +27,9 @@ public sealed class Barra2ConfigTests : IDisposable
             InputDirectory = tempDirectory.AbsolutePath,
             Project = validProject,
             // Use Trunk to mirror NarClim2 tests and simplify timestep validation
-            Version = ModelVersion.Trunk,
-            InputTimeStepHours = 24,
-            OutputTimeStepHours = 24
+            Version = ModelVersion.Dave,
+            InputTimeStepHours = 1,
+            OutputTimeStepHours = 3
         };
     }
 
@@ -75,16 +75,14 @@ public sealed class Barra2ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData(Barra2Frequency.Hour1)]
-    [InlineData(Barra2Frequency.Hour3)]
-    [InlineData(Barra2Frequency.Hour6)]
-    [InlineData(Barra2Frequency.Daily)]
-    [InlineData(Barra2Frequency.Monthly)]
-    [InlineData(Barra2Frequency.Constant)]
-    public void CreateDatasets_WithSingleFrequency_FiltersCorrectly(Barra2Frequency frequency)
+    [InlineData(Barra2Frequency.Hour1, 1)]
+    [InlineData(Barra2Frequency.Hour3, 3)]
+    [InlineData(Barra2Frequency.Hour6, 6)]
+    [InlineData(Barra2Frequency.Daily, 24)]
+    public void CreateDatasets_WithSingleFrequency_FiltersCorrectly(Barra2Frequency frequency, int hours)
     {
         var config = CreateValidConfig();
-        config.Frequencies = [Barra2FrequencyExtensions.ToString(frequency)];
+        config.InputTimeStepHours = hours;
 
         var datasets = config.CreateDatasets().Cast<Barra2Dataset>().ToList();
 
@@ -122,17 +120,18 @@ public sealed class Barra2ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData(Barra2Domain.Aus11, Barra2Frequency.Hour1, Barra2Grid.R2, Barra2Variant.HRes)]
-    [InlineData(Barra2Domain.Aust11, Barra2Frequency.Monthly, Barra2Grid.C2, Barra2Variant.Eda)]
+    [InlineData(Barra2Domain.Aus11, 1, Barra2Grid.R2, Barra2Variant.HRes, Barra2Frequency.Hour1)]
+    [InlineData(Barra2Domain.Aust11, 24, Barra2Grid.C2, Barra2Variant.Eda, Barra2Frequency.Daily)]
     public void CreateDatasets_WithMultipleFilters_AppliesAllFilters(
         Barra2Domain domain,
-        Barra2Frequency frequency,
+        int inputTimeStepHours,
         Barra2Grid grid,
-        Barra2Variant variant)
+        Barra2Variant variant,
+        Barra2Frequency frequency)
     {
         var config = CreateValidConfig();
         config.Domains = [Barra2DomainExtensions.ToString(domain)];
-        config.Frequencies = [Barra2FrequencyExtensions.ToString(frequency)];
+        config.InputTimeStepHours = inputTimeStepHours;
         config.Grids = [Barra2GridExtensions.ToString(grid)];
         config.Variants = [Barra2VariantExtensions.ToString(variant)];
 
@@ -163,11 +162,13 @@ public sealed class Barra2ConfigTests : IDisposable
     }
 
     [Theory]
-    [InlineData("invalid-frequency")]
-    public void CreateDatasets_WithInvalidFrequency_Throws(string invalid)
+    [InlineData(-1)]
+    [InlineData(-2)] // Plausible but not provided by BARRA2 in practice
+    [InlineData(25)]
+    public void CreateDatasets_WithInvalidFrequency_Throws(int invalidHours)
     {
         var config = CreateValidConfig();
-        config.Frequencies = [invalid];
+        config.InputTimeStepHours = invalidHours;
         Assert.Throws<ArgumentException>(() => config.CreateDatasets().ToList());
     }
 

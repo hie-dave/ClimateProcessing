@@ -12,25 +12,28 @@ public class Barra2Config : ProcessingConfig
     [Option("domain", HelpText = "Domains to process. Valid values: AUS-11, AUS-22, AUST-04, AUST-11. Default: process all domains.")]
     public IEnumerable<string>? Domains { get; set; }
 
-    [Option("frequency", HelpText = "Frequencies to process. Valid values: 1hr, 3hr, 6hr, daily, monthly. Default: process 1-hourly.")]
-    public IEnumerable<string>? Frequencies { get; set; }
-
     [Option("grid", HelpText = "Grids to process. Valid values: R2, RE2, C2. Default: process all grids.")]
     public IEnumerable<string>? Grids { get; set; }
 
     [Option("variant", HelpText = "Variants to process. Valid values: hres, eda. Default: process hres.")]
     public IEnumerable<string>? Variants { get; set; }
 
+    /// <inheritdoc />
+    public Barra2Config()
+    {
+        // Default to hourly.
+        InputTimeStepHours = 1;
+    }
+
     /// <inheritdoc /> 
     public override IEnumerable<Barra2Dataset> CreateDatasets()
     {
         IEnumerable<Barra2Domain> domains = GetDomains();
-        IEnumerable<Barra2Frequency> frequencies = GetFrequencies();
+        Barra2Frequency frequency = GetFrequency();
         IEnumerable<Barra2Grid> grids = GetGrids();
         IEnumerable<Barra2Variant> variants = GetVariants();
 
         return from domain in domains
-               from frequency in frequencies
                from grid in grids
                from variant in variants
                select new Barra2Dataset(
@@ -56,12 +59,16 @@ public class Barra2Config : ProcessingConfig
     /// Get the list of frequencies to process.
     /// </summary>
     /// <returns>The list of frequencies to process.</returns>
-    private IEnumerable<Barra2Frequency> GetFrequencies()
+    private Barra2Frequency GetFrequency()
     {
-        if (Frequencies == null || !Frequencies.Any())
-            // Default to 1-hourly
-            return [Barra2Frequency.Hour1];
-        return Frequencies.Select(Barra2FrequencyExtensions.FromString);
+        return InputTimeStepHours switch
+        {
+            1 => Barra2Frequency.Hour1,
+            3 => Barra2Frequency.Hour3,
+            6 => Barra2Frequency.Hour6,
+            24 => Barra2Frequency.Daily,
+            _ => throw new ArgumentException($"Invalid input time step: {InputTimeStepHours}")
+        };
     }
 
     /// <summary>
