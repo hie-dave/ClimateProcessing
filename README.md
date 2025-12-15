@@ -9,6 +9,8 @@ which process a climate dataset for use with LPJ-Guess.
 
 - NarCLiM 2.0
 - CORDEX-CMIP6-based regridded and calibrated data for Australia
+- BARRA2
+- SILO
 
 Support for additional datasets can be added by implementing the
 `IClimateDataset` interface for the dataset.
@@ -17,10 +19,42 @@ Support for additional datasets can be added by implementing the
 
 Run the ClimateProcessing project with `--help` to view CLI arguments. E.g.
 
-```
+```bash
 dotnet run --project ClimateProcessing -- --help
 # or
 make run -- --help
+```
+
+In general, each supported dataset is represented by a CLI verb, and will have
+different arguments. The above command will list the available verbs. To view
+the arguments for a specific verb, run something like:
+
+```bash
+dotnet run --project ClimateProcessing -- narclim2 --help
+```
+
+### Usage Example: SILO
+
+```bash
+# Should contain subdirectories like daily_rain, radiation, etc.
+SILO_DIR=/path/to/silo/data
+OUT_DIR=/desired/path/to/output
+PROJECT=xy12 # Project code against which PBS jobs will be debited
+
+dotnet run --project ClimateProcessing -- \
+    --input-dir "${SILO_DIR}" \
+    --output-dir "${OUT_DIR}" \
+    --chunk-size 8192 \
+    --version Trunk \
+    --input-timestep 24 \
+    --output-timestep 24 \
+    --project "${PROJECT}" \
+    --email "example@example.com" \
+    --email-notification Aborted \
+    --memory 256 \
+    --queue hugemem \
+    --walltime "06:00:00" \
+    --dry-run
 ```
 
 ## Unit Tests
