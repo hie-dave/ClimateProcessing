@@ -180,6 +180,22 @@ public class CordexDatasetTests : IDisposable
         Assert.Throws<ArgumentException>(() => dataset.GetVariableInfo(variable));
     }
 
+    [Theory]
+    [InlineData(ClimateVariable.MinTemperature, CordexActivity.BiasCorrected, true)]
+    [InlineData(ClimateVariable.MinTemperature, CordexActivity.DD, false)]
+    [InlineData(ClimateVariable.Precipitation, CordexActivity.DD, false)]
+    [InlineData(ClimateVariable.ShortwaveRadiation, CordexActivity.BiasCorrected, true)]
+    public void GetVariableInfo_AppendsAdjustToBiasCorrectedData(ClimateVariable variable, CordexActivity activity, bool containsAdjust)
+    {
+        IClimateDataset dataset = CreateDataset(activity: activity);
+        VariableInfo info = dataset.GetVariableInfo(variable);
+        if (containsAdjust)
+            Assert.EndsWith("Adjust", info.Name);
+        else
+            // This assumes variable names don't normally contain "Adjust".
+            Assert.False(info.Name.EndsWith("Adjust"));
+    }
+
     [Fact]
     public void GetVariableProcessors_ReturnsCorrectProcessors()
     {
