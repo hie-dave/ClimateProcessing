@@ -578,6 +578,22 @@ public class CordexConfigTests
         Assert.Equal(sources.Distinct().Count(), datasets.Count);
     }
 
+    [Theory]
+    [InlineData(CordexInstitution.CSIRO, CordexSource.BarpaR)]
+    public void Validate_ThrowsForUnsupportedCombination(CordexInstitution institution, CordexSource source)
+    {
+        using TempDirectory tempDirectory = TempDirectory.Create();
+        CordexConfig config = CreateValidConfig(tempDirectory);
+
+        config.Institutions = [institution.ToInstitutionId()];
+        config.Sources = [source.ToSourceId()];
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(config.Validate);
+        Assert.Contains("combination", exception.Message);
+        Assert.Contains(institution.ToInstitutionId(), exception.Message);
+        Assert.Contains(source.ToSourceId(), exception.Message);
+    }
+
     private CordexConfig CreateValidConfig(TempDirectory workingDirectory)
     {
         return new CordexConfig
