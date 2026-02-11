@@ -209,12 +209,28 @@ public class CordexDatasetTests : IDisposable
     }
 
     [Fact]
-    public void GetVariableProcessors_ThrowsForInvalidModelVersion()
+    public void GetVariableProcessors_DoesNotThrowForInvalidModelVersion()
     {
+        // Ensure that no exception is thrown for dave version, which typically
+        // requires subdaily outputs (which CORDEX doesn't provide).
         CordexDataset dataset = CreateDataset();
         IJobCreationContext context = new TestJobCreationContext(ModelVersion.Dave);
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => dataset.GetProcessors(context));
-        Assert.Contains("version", ex.Message);
+        IEnumerable<IVariableProcessor> processors = dataset.GetProcessors(context);
+        Assert.NotEmpty(processors);
+        ClimateVariable[] expectedVariables = [
+            ClimateVariable.Precipitation,
+            ClimateVariable.ShortwaveRadiation,
+            ClimateVariable.WindSpeed,
+            ClimateVariable.MinTemperature,
+            ClimateVariable.MaxTemperature,
+        ];
+        foreach (ClimateVariable variable in expectedVariables)
+            AssertContains(processors, variable);
+
+        // Ensure that no processors are returned for variables which aren't
+        // required by the model version.
+        Assert.Empty(processors.Where(p => p.TargetVariable == ClimateVariable.Temperature));
+        Assert.Empty(processors.Where(p => p.TargetVariable == ClimateVariable.RelativeHumidity));
     }
 
     [Fact]

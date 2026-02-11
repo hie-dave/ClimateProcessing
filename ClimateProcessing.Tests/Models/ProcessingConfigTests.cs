@@ -125,9 +125,10 @@ public class ProcessingConfigTests : IDisposable
     public void ValidateDaveTimeStepSettings_WithDailyOutputTimeStep_ThrowsArgumentException()
     {
         config.Version = ModelVersion.Dave;
+        config.InputTimeStepHours = 24;
         config.OutputTimeStepHours = 24;
-        var ex = Assert.Throws<ArgumentException>(() => config.ValidateDaveTimeStepSettings());
-        Assert.Equal("Output timestep must be subdaily when processing for Dave.", ex.Message);
+        // Exception should not be thrown.
+        config.ValidateDaveTimeStepSettings();
     }
 
     [Fact]

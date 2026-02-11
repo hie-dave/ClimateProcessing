@@ -105,7 +105,7 @@ public class MergetimeProcessor : IVariableProcessor
             context.Config.Ncpus,
             dataset
         );
-        string preprocessingJobName = $"preprocessing_{inputMetadata.Name}_{dataset.DatasetName}";
+        string preprocessingJobName = $"preprocess_{inputMetadata.Name}_{dataset.DatasetName}";
         using IFileWriter preprocessingWriter = context.FileWriterFactory.Create(preprocessingJobName);
         await context.PBSPreprocessing.WriteHeaderAsync(preprocessingWriter, preprocessingJobName, storageDirectives);
         await preprocessingGenerator.WritePreprocessingScriptAsync(preprocessingWriter, preprocessingOptions);

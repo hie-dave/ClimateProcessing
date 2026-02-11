@@ -131,8 +131,9 @@ public abstract class ProcessingConfig
 
     internal virtual void ValidateDaveTimeStepSettings()
     {
-        if (OutputTimeStepHours == 24)
-            throw new ArgumentException("Output timestep must be subdaily when processing for Dave.");
+        // TODO: emit warning if using daily timestep with DAVE. This setup will
+        // require the user to later use a weather generator to disaggregate the
+        // data to subdaily, before it can be used with DAVE.
         if (InputTimeStepHours == 0)
             throw new ArgumentException("Input timestep must be specified when processing for Dave.");
         if (OutputTimeStepHours == 0)

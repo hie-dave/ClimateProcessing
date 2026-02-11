@@ -352,35 +352,45 @@ public class CordexDataset : IClimateDataset
     /// <inheritdoc />
     public IEnumerable<IVariableProcessor> GetProcessors(IJobCreationContext context)
     {
-        if (context.Config.Version == ModelVersion.Dave)
-            throw new NotSupportedException($"Dataset {DatasetName} is not supported in version {context.Config.Version}");
-
-        // Calculate temperature from min and max.
-        IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
-        string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
-        MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
-
-        // Calculate relative humidity from min and max.
-        MeanProcessor relhumCalculator = new MeanProcessor(
-            GenerateFileName(context, ClimateVariable.RelativeHumidity, ClimateVariable.MinRelativeHumidity),
-            ClimateVariable.RelativeHumidity,
-            [ClimateVariable.MinRelativeHumidity, ClimateVariable.MaxRelativeHumidity]);
-
-        return [
+        List<IVariableProcessor> processors = [
             new StandardVariableProcessor(ClimateVariable.Precipitation),
             new StandardVariableProcessor(ClimateVariable.ShortwaveRadiation),
             new StandardVariableProcessor(ClimateVariable.WindSpeed),
             new StandardVariableProcessor(ClimateVariable.MinTemperature),
             new StandardVariableProcessor(ClimateVariable.MaxTemperature),
-            new RechunkProcessorDecorator(tempCalculator),
+        ];
+
+        if (context.Config.Version != ModelVersion.Dave)
+        {
+            // Calculate temperature from min and max.
+            IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
+            string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
+            MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
+
+            // Calculate relative humidity from min and max.
+            MeanProcessor relhumCalculator = new MeanProcessor(
+                GenerateFileName(context, ClimateVariable.RelativeHumidity, ClimateVariable.MinRelativeHumidity),
+                ClimateVariable.RelativeHumidity,
+                [ClimateVariable.MinRelativeHumidity, ClimateVariable.MaxRelativeHumidity]);
+
             // No need to rechunk min and max rel. humidity, as it's only an
             // intermediate variable.
-            new MergetimeProcessor(ClimateVariable.MinRelativeHumidity),
-            new MergetimeProcessor(ClimateVariable.MaxRelativeHumidity),
-            new RechunkProcessorDecorator(relhumCalculator),
-            // air pressure not needed (as we have rel. humidity)
-            // specific humidity not needed (as we have rel. humidity)
-        ];
+            processors.AddRange([
+                new MergetimeProcessor(ClimateVariable.MinRelativeHumidity),
+                new MergetimeProcessor(ClimateVariable.MaxRelativeHumidity),
+                // air pressure not needed (as we have rel. humidity)
+                // specific humidity not needed (as we have rel. humidity)
+                new RechunkProcessorDecorator(tempCalculator),
+                new RechunkProcessorDecorator(relhumCalculator)]);
+        }
+
+        // CORDEX only contains daily data. Therefore, processing for dave means
+        // running a weather generator on the output to disaggregate to
+        // subdaily. Currently, the only one in use is the MAESPA WG, which
+        // doesn't require mean daily temperature or any measure of humidity, so
+        // we don't need to calculate those for dave.
+
+        return processors;
     }
 
     private string GenerateFileName(

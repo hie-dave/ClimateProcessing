@@ -57,7 +57,12 @@ public class ClimateVariableManager : IClimateVariableManager
         { ClimateVariable.SurfacePressure, "Pa" },
         { ClimateVariable.ShortwaveRadiation, "W m-2" },
         { ClimateVariable.WindSpeed, "m s-1" },
-        { ClimateVariable.Vpd, "kPa" }
+        { ClimateVariable.Vpd, "kPa" },
+        // Dave doesn't technically use min/max daily temperature itself, but
+        // the MAESPA weather generator does require these (in ℃), so we
+        // set these here.
+        { ClimateVariable.MaxTemperature, "degC" },
+        { ClimateVariable.MinTemperature, "degC" },
     };
 
     /// <summary>

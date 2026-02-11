@@ -114,7 +114,7 @@ public sealed class MergetimeProcessorTests : IDisposable
         // This now creates two jobs - preprocessing, and mergetime.
         Assert.Equal(2, jobs.Count);
         var preprocessingJob = jobs[0];
-        Assert.Equal($"preprocessing_{variableInfo.Name}_{datasetName}", preprocessingJob.Name);
+        Assert.Equal($"preprocess_{variableInfo.Name}_{datasetName}", preprocessingJob.Name);
         Assert.Equal(InMemoryScriptWriter.ScriptName, preprocessingJob.ScriptPath);
         Assert.Equal(ClimateVariableFormat.Preprocessed(targetVariable), preprocessingJob.Output);
         Assert.Empty(preprocessingJob.Dependencies);

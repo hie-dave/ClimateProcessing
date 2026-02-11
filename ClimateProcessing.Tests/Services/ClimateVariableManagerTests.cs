@@ -57,8 +57,8 @@ public class ClimateVariableManagerTests
     [Theory]
     [InlineData(ModelVersion.Trunk, (ClimateVariable)1001)]
     [InlineData(ModelVersion.Dave, (ClimateVariable)1001)]
-    [InlineData(ModelVersion.Dave, ClimateVariable.MaxTemperature)]
-    [InlineData(ModelVersion.Dave, ClimateVariable.MinTemperature)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.MaxRelativeHumidity)]
+    [InlineData(ModelVersion.Dave, ClimateVariable.MinRelativeHumidity)]
     public void GetOutputRequirements_ThrowsForInvalidVariable(ModelVersion version, ClimateVariable variable)
     {
         ClimateVariableManager manager = new ClimateVariableManager(version);
