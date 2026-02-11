@@ -19,7 +19,7 @@ public static class UnitConverter
     private const double degCToK = 273.15;
 
     /// <summary>
-    /// A dictionary of unit synonyms/aliases.
+    /// A dictionary mapping canonical unit names to sets of synonyms/aliases.
     /// </summary>
     private static readonly Dictionary<string, HashSet<string>> UnitSynonyms = new()
     {
