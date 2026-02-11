@@ -10,7 +10,7 @@ using static ClimateProcessing.Tests.Helpers.AssertionHelpers;
 
 namespace ClimateProcessing.Tests.Services;
 
-public class CdoMergetimeScriptGeneratorTests
+public class CdoScriptGeneratorTests
 {
     private static readonly string[] cdoTemporalAggregationOperators = [
         "daymin",
@@ -45,7 +45,7 @@ public class CdoMergetimeScriptGeneratorTests
         "expr",
     ];
 
-    private readonly CdoMergetimeScriptGenerator generator = new();
+    private readonly CdoScriptGenerator generator = new();
 
     [Theory]
     [InlineData("K", "K", "temp", false, false)]  // No conversion needed
@@ -59,7 +59,7 @@ public class CdoMergetimeScriptGeneratorTests
         bool expectsRenaming)
     {
         IEnumerable<string> operators =
-            CdoMergetimeScriptGenerator.GenerateUnitConversionOperators(
+            CdoScriptGenerator.GenerateUnitConversionOperators(
                 outputVar,
                 inputUnits,
                 targetUnits,
@@ -91,7 +91,7 @@ public class CdoMergetimeScriptGeneratorTests
         TimeStep inputTimestep = new TimeStep(inputHours);
         TimeStep outputTimestep = new TimeStep(outputHours);
 
-        string @operator = CdoMergetimeScriptGenerator.GenerateTimeAggregationOperator(
+        string @operator = CdoScriptGenerator.GenerateTimeAggregationOperator(
             inputTimestep,
             outputTimestep,
             aggregationMethod);
@@ -108,7 +108,7 @@ public class CdoMergetimeScriptGeneratorTests
         string outputVar,
         bool requiresProcessing)
     {
-        string op = CdoMergetimeScriptGenerator.GenerateRenameOperator(inputVar, outputVar);
+        string op = CdoScriptGenerator.GenerateRenameOperator(inputVar, outputVar);
         Assert.Equal(requiresProcessing, !string.IsNullOrEmpty(op));
     }
 

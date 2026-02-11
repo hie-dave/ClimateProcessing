@@ -104,7 +104,7 @@ public sealed class NarClim2PreprocessingScriptGeneratorTests : IDisposable
     {
         InterpolationAlgorithm algorithm = (InterpolationAlgorithm)999;
         ArgumentException exception = Assert.Throws<ArgumentException>(
-            () => CdoMergetimeScriptGenerator.GetRemapOperator(algorithm));
+            () => CdoScriptGenerator.GetRemapOperator(algorithm));
         Assert.Contains("algorithm", exception.Message);
     }
 

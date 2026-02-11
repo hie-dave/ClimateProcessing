@@ -85,7 +85,7 @@ public class MeanProcessor : IVariableProcessor
         await writer.WriteLineAsync("EOF");
         await writer.WriteLineAsync();
 
-        string standardArgs = CdoMergetimeScriptGenerator.GetCommonArgs();
+        string standardArgs = CdoScriptGenerator.GetCommonArgs();
 
         // Calculate mean using the equation file.
 

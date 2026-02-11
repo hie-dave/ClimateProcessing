@@ -8,7 +8,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Generates CDO commands for processing climate data.
 /// </summary>
-public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator, IPreprocessingScriptGenerator
+public class CdoScriptGenerator : IMergetimeScriptGenerator, IPreprocessingScriptGenerator
 {
     /// <summary>
     /// Name of the variable containing the directory holding all input files

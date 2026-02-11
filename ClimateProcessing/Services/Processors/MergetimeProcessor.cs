@@ -40,8 +40,8 @@ public class MergetimeProcessor : IVariableProcessor
     /// <param name="targetVariable">The target variable.</param>
     public MergetimeProcessor(ClimateVariable targetVariable)
         : this(targetVariable,
-               new CdoMergetimeScriptGenerator(),
-               new CdoMergetimeScriptGenerator())
+               new CdoScriptGenerator(),
+               new CdoScriptGenerator())
     {
     }
 

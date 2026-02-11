@@ -6,7 +6,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Script generator specifically for NarClim2 datasets.
 /// </summary>
-public class NarClim2PreprocessingScriptGenerator : CdoMergetimeScriptGenerator
+public class NarClim2PreprocessingScriptGenerator : CdoScriptGenerator
 {
     /// <summary>
     /// Name of the directory in which the files with corrected rlon values are

@@ -102,7 +102,7 @@ public class VpdCalculator : IVariableProcessor
         // Calculate VPD using the equation file.
         await writer.WriteLineAsync("# Calculate VPD.");
         await writer.WriteLineAsync($"log \"Calculating VPD...\"");
-        await writer.WriteLineAsync($"cdo {CdoMergetimeScriptGenerator.GetCommonArgs()} exprf,\"${{EQN_FILE}}\" -merge {inFiles} \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync($"cdo {CdoScriptGenerator.GetCommonArgs()} exprf,\"${{EQN_FILE}}\" -merge {inFiles} \"${{OUT_FILE}}\"");
         await writer.WriteLineAsync($"log \"VPD calculation completed successfully.\"");
 
         // We can't delete the intermediate files yet, because they are required

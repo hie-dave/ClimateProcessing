@@ -47,8 +47,8 @@ public class StandardVariableProcessor : IVariableProcessor
     /// <param name="targetVariable">The target variable.</param>
     public StandardVariableProcessor(ClimateVariable targetVariable)
         : this(targetVariable,
-               new CdoMergetimeScriptGenerator(),
-               new CdoMergetimeScriptGenerator(),
+               new CdoScriptGenerator(),
+               new CdoScriptGenerator(),
                new NcoRechunkScriptGenerator())
     {
     }
