@@ -74,6 +74,10 @@ public class CordexConfig : ProcessingConfig
         foreach (var activity in activities)
             if (!versions.Any(v => v.IsSupportedFor(activity)))
                 throw new ArgumentException($"Activity {activity} is not supported for any of the selected versions ({string.Join(", ", versions.Select(v => v.ToString()))}).", nameof(activity));
+
+        // CSIRO + BARPA-R not supported.
+        if (GetInstitutions().Contains(CordexInstitution.CSIRO) && GetSources().Contains(CordexSource.BarpaR))
+            throw new ArgumentException("The combination of CSIRO and BARPA-R is not supported.");
     }
 
     /// <summary>
