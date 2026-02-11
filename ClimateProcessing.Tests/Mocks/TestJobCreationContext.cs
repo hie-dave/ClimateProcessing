@@ -29,6 +29,8 @@ public class TestJobCreationContext : IJobCreationContext
 
     public IDependencyResolver DependencyResolver => mockDependencyResolver.Object;
 
+    public IScriptHeaderWriter PBSPreprocessing { get; set; }
+
     public TestJobCreationContext() : this(ModelVersion.Trunk) { }
 
     public TestJobCreationContext(ModelVersion version)
@@ -60,6 +62,7 @@ public class TestJobCreationContext : IJobCreationContext
                 });
         PBSLightweight = mockHeaderWriter.Object;
         PBSHeavyweight = mockHeaderWriter.Object;
+        PBSPreprocessing = mockHeaderWriter.Object;
     }
 
     public TestJobCreationContext(ModelVersion version, string outputDirectory)

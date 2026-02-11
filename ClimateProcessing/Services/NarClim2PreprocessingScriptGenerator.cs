@@ -6,7 +6,7 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Script generator specifically for NarClim2 datasets.
 /// </summary>
-public class NarClim2MergetimeScriptGenerator : CdoMergetimeScriptGenerator
+public class NarClim2PreprocessingScriptGenerator : CdoMergetimeScriptGenerator
 {
     /// <summary>
     /// Name of the directory in which the files with corrected rlon values are
@@ -15,9 +15,9 @@ public class NarClim2MergetimeScriptGenerator : CdoMergetimeScriptGenerator
     private const string rlonDir = "corrected_rlon";
 
     /// <summary>
-    /// Creates a new instance of the <see cref="NarClim2MergetimeScriptGenerator"/> class.
+    /// Creates a new instance of the <see cref="NarClim2PreprocessingScriptGenerator"/> class.
     /// </summary>
-    public NarClim2MergetimeScriptGenerator()
+    public NarClim2PreprocessingScriptGenerator()
     {
     }
 
@@ -28,11 +28,11 @@ public class NarClim2MergetimeScriptGenerator : CdoMergetimeScriptGenerator
     /// <param name="writer">The script writer.</param>
     /// <param name="options">The mergetime options.</param>
     /// <exception cref="ArgumentException">If the dataset is not a <see cref="NarClim2Dataset"/>.</exception>
-    protected override async Task WritePreMerge(IFileWriter writer, IMergetimeOptions options)
+    protected override async Task WritePreprocessingContentsAsync(IFileWriter writer, string operators, IClimateDataset dataset, int ncpus)
     {
-        if (options.Dataset is not NarClim2Dataset narclim2)
+        if (dataset is not NarClim2Dataset narclim2)
             // Should never happen.
-            throw new ArgumentException($"Expected dataset to be of type {typeof(NarClim2Dataset)}, but got {options.Dataset.GetType().Name}");
+            throw new ArgumentException($"Expected dataset to be of type {typeof(NarClim2Dataset)}, but got {dataset.GetType().Name}");
 
         // Some narclim2 files have incorrect rlon values. We can use the
         // setvar.py script to correct them.
@@ -51,6 +51,8 @@ public class NarClim2MergetimeScriptGenerator : CdoMergetimeScriptGenerator
         await writer.WriteLineAsync($"{inDirVariable}=\"${{CORRECTED_RLON_DIR}}\"");
         await writer.WriteLineAsync("log \"Successfully corrected all rlon values.\"");
         await writer.WriteLineAsync();
+
+        await base.WritePreprocessingContentsAsync(writer, operators, dataset, ncpus);
     }
 
     /// <summary>

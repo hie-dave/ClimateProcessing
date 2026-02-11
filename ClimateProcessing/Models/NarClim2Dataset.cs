@@ -292,7 +292,9 @@ public class NarClim2Dataset : IClimateDataset
             standardVariables.Add(ClimateVariable.MaxTemperature);
         }
         List<IVariableProcessor> processors = standardVariables
-            .Select(v => new StandardVariableProcessor(v, new NarClim2MergetimeScriptGenerator(), new NcoRechunkScriptGenerator()))
+            .Select(v => new StandardVariableProcessor(v, new NarClim2PreprocessingScriptGenerator(),
+                                                          new NarClim2PreprocessingScriptGenerator(),
+                                                          new NcoRechunkScriptGenerator()))
             .ToList<IVariableProcessor>();
         if (context.Config.Version == ModelVersion.Dave)
             processors.Add(new RechunkProcessorDecorator(new VpdCalculator(context.Config.VPDMethod)));

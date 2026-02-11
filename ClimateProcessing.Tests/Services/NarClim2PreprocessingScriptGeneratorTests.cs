@@ -10,20 +10,22 @@ using Xunit.Abstractions;
 using ClimateProcessing.Units;
 using ClimateProcessing.Tests.Helpers;
 using ClimateProcessing.Models.Options;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel.Engine.ClientProtocol;
 
 namespace ClimateProcessing.Tests.Services;
 
-public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
+public sealed class NarClim2PreprocessingScriptGeneratorTests : IDisposable
 {
+    private readonly bool emitNormalisedFiles = false;
     private readonly TempDirectory outputDirectory;
-    private readonly NarClim2MergetimeScriptGenerator generator;
+    private readonly NarClim2PreprocessingScriptGenerator generator;
     private readonly ITestOutputHelper outputHelper;
 
-    public NarClim2MergetimeScriptGeneratorTests(ITestOutputHelper outputHelper)
+    public NarClim2PreprocessingScriptGeneratorTests(ITestOutputHelper outputHelper)
     {
         this.outputHelper = outputHelper;
         outputDirectory = TempDirectory.Create(GetType().Name);
-        generator = new NarClim2MergetimeScriptGenerator();
+        generator = new NarClim2PreprocessingScriptGenerator();
     }
 
     public void Dispose()
@@ -66,33 +68,17 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
         return mockDataset;
     }
 
-    private MergetimeOptions CreateOptions(IClimateDataset dataset)
-    {
-        return new MergetimeOptions(
-            "${IN_DIR}",
-            "${OUT_FILE}",
-            new VariableInfo("tas", "K"),
-            new VariableInfo("tas", "K"),
-            TimeStep.Daily,
-            TimeStep.Daily,
-            AggregationMethod.Mean,
-            null,
-            InterpolationAlgorithm.Conservative,
-            false,
-            false,
-            dataset);
-    }
-
     [Theory]
     [InlineData(NarClim2Domain.AUS18, NarClim2Constants.Files.RlonValuesFileAUS18)]
     [InlineData(NarClim2Domain.SEAus04, NarClim2Constants.Files.RlonValuesFileSEAus04)]
-    public async Task GenerateVariableMergeScript_UsesCorrectPath(NarClim2Domain domain, string expectedFileName)
+    public async Task GenerateVariablePreprocessingScript_UsesCorrectPath(NarClim2Domain domain, string expectedFileName)
     {
         Mock<NarClim2Dataset> mockDataset = CreateMockDataset(domain: domain);
-        var options = CreateOptions(mockDataset.Object);
+        var options = new MutablePreprocessingOptions();
+        options.Dataset = mockDataset.Object;
 
         using InMemoryScriptWriter writer = new();
-        await generator.WriteMergetimeScriptAsync(writer, options);
+        await generator.WritePreprocessingScriptAsync(writer, options);
         string script = writer.GetContent();
 
         // The script should use the correct rlon values file for this domain.
@@ -105,11 +91,12 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
     public async Task GenerateVariableMergeScript_WithNonNarClim2Dataset_ThrowsArgumentException()
     {
         IClimateDataset mockDataset = new StaticMockDataset("/input");
-        var options = CreateOptions(mockDataset);
+        var options = new MutablePreprocessingOptions();
+        options.Dataset = mockDataset;
 
         using InMemoryScriptWriter writer = new();
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            generator.WriteMergetimeScriptAsync(writer, options));
+            generator.WritePreprocessingScriptAsync(writer, options));
     }
 
     [Fact]
@@ -179,6 +166,12 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
             "mergetime_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "mergetime_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "mergetime_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_rsds_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_sfcWind_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
+            "preprocess_tas_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "rechunk_huss_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "rechunk_pr_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "rechunk_ps_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
@@ -188,6 +181,23 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
             "rechunk_vpd_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3",
             "submit_NARCliM2.0_AUS-18_ACCESS-ESM1-5_historical_NARCliM2-0-WRF412R3"
         ];
+
+        if (emitNormalisedFiles)
+        {
+            string normalisedScriptPath = GetNormalisedScriptPath();
+            foreach (string scriptPath in Directory.EnumerateFileSystemEntries(scriptsDirectory))
+            {
+                string scriptName = Path.GetFileName(scriptPath);
+                Assert.True(File.Exists(scriptPath), $"Script {scriptPath} does not exist.");
+                string actualScript = await File.ReadAllTextAsync(scriptPath);
+
+                string normalisedScript = actualScript.Replace(outputDirectory.AbsolutePath, "@#OUTPUT_DIRECTORY#@");
+                normalisedScript = normalisedScript.Replace(narclimDirectory.AbsolutePath, "@#INPUT_DIRECTORY#@");
+                string normalisedPath = Path.Combine(normalisedScriptPath, scriptName);
+                await File.WriteAllTextAsync(normalisedPath, normalisedScript);
+            }
+            outputHelper.WriteLine($"Normalised scripts to: {normalisedScriptPath}");
+        }
 
         Assert.Equal(expectedScriptNames.Length, Directory.EnumerateFileSystemEntries(scriptsDirectory).Count());
 
@@ -210,5 +220,13 @@ public sealed class NarClim2MergetimeScriptGeneratorTests : IDisposable
 
             Assert.Equal(expectedScript, actualScript);
         }
+    }
+
+    private string GetNormalisedScriptPath()
+    {
+        if (emitNormalisedFiles)
+            return Directory.CreateTempSubdirectory(GetType().Name).FullName;
+        else
+            return "unused";
     }
 }

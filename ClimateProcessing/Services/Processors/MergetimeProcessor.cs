@@ -13,6 +13,11 @@ namespace ClimateProcessing.Services.Processors;
 public class MergetimeProcessor : IVariableProcessor
 {
     /// <summary>
+    /// The preprocessing script generator.
+    /// </summary>
+    private readonly IPreprocessingScriptGenerator preprocessingGenerator;
+
+    /// <summary>
     /// The mergetime script generator.
     /// </summary>
     private readonly IMergetimeScriptGenerator scriptGenerator;
@@ -34,7 +39,9 @@ public class MergetimeProcessor : IVariableProcessor
     /// </summary>
     /// <param name="targetVariable">The target variable.</param>
     public MergetimeProcessor(ClimateVariable targetVariable)
-        : this(targetVariable, new CdoMergetimeScriptGenerator())
+        : this(targetVariable,
+               new CdoMergetimeScriptGenerator(),
+               new CdoMergetimeScriptGenerator())
     {
     }
 
@@ -42,10 +49,14 @@ public class MergetimeProcessor : IVariableProcessor
     /// Creates a new mergetime processor.
     /// </summary>
     /// <param name="targetVariable">The target variable.</param>
+    /// <param name="preprocessingGenerator">The preprocessing script generator.</param>
     /// <param name="scriptGenerator">The mergetime script generator.</param>
-    public MergetimeProcessor(ClimateVariable targetVariable, IMergetimeScriptGenerator scriptGenerator)
+    public MergetimeProcessor(ClimateVariable targetVariable,
+                              IPreprocessingScriptGenerator preprocessingGenerator,
+                              IMergetimeScriptGenerator scriptGenerator)
     {
         TargetVariable = targetVariable;
+        this.preprocessingGenerator = preprocessingGenerator;
         this.scriptGenerator = scriptGenerator;
     }
 
@@ -57,6 +68,9 @@ public class MergetimeProcessor : IVariableProcessor
 
         // File paths.
         string inDir = dataset.GetInputFilesDirectory(TargetVariable);
+
+        string preprocessingOutDir = context.PathManager.GetDatasetPath(dataset, PathType.Working);
+        preprocessingOutDir = Path.Combine(preprocessingOutDir, targetMetadata.Name);
 
         // TODO: this will generate an output file name which uses the name of
         // the variable from the input dataset. This will be incorrect if the
@@ -77,15 +91,9 @@ public class MergetimeProcessor : IVariableProcessor
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives(requiredFiles);
 
-        // Create script directory if it doesn't already exist.
-        // This should be unnecessary at this point.
-        string jobName = $"mergetime_{inputMetadata.Name}_{dataset.DatasetName}";
-        using IFileWriter writer = context.FileWriterFactory.Create(jobName);
-        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
-
-        MergetimeOptions opts = new MergetimeOptions(
+        PreprocessingOptions preprocessingOptions = new(
             inDir,
-            outFile,
+            preprocessingOutDir,
             inputMetadata,
             targetMetadata,
             context.Config.InputTimeStep,
@@ -93,21 +101,42 @@ public class MergetimeProcessor : IVariableProcessor
             context.VariableManager.GetAggregationMethod(TargetVariable),
             context.Config.GridFile,
             context.Remapper.GetInterpolationAlgorithm(inputMetadata, TargetVariable),
-            false,
-            false,
+            true,
+            context.Config.Ncpus,
             dataset
         );
+        string preprocessingJobName = $"preprocessing_{inputMetadata.Name}_{dataset.DatasetName}";
+        using IFileWriter preprocessingWriter = context.FileWriterFactory.Create(preprocessingJobName);
+        await context.PBSPreprocessing.WriteHeaderAsync(preprocessingWriter, preprocessingJobName, storageDirectives);
+        await preprocessingGenerator.WritePreprocessingScriptAsync(preprocessingWriter, preprocessingOptions);
 
+        Job preprocessingJob = new Job(
+            preprocessingJobName,
+            preprocessingWriter.FilePath,
+            ClimateVariableFormat.Preprocessed(TargetVariable),
+            preprocessingOutDir,
+            [] // No dependencies
+        );
+
+        // Create script directory if it doesn't already exist.
+        // This should be unnecessary at this point.
+        string jobName = $"mergetime_{inputMetadata.Name}_{dataset.DatasetName}";
+        using IFileWriter writer = context.FileWriterFactory.Create(jobName);
+        await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
+
+        // Use the output directory of the preprocessing job as the input
+        // directory of the mergetime job.
+        MergetimeOptions opts = new MergetimeOptions(preprocessingOutDir, outFile);
         await scriptGenerator.WriteMergetimeScriptAsync(writer, opts);
 
-        Job job = new Job(
+        Job mergetime = new Job(
             jobName,
             writer.FilePath,
             ClimateVariableFormat.Timeseries(TargetVariable),
             outFile,
-            [] // No dependencies
+            [preprocessingJob]
         );
 
-        return [job];
+        return [preprocessingJob, mergetime];
     }
 }

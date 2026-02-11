@@ -1,6 +1,8 @@
+using System.Text.RegularExpressions;
+
 namespace ClimateProcessing.Extensions;
 
-public static class StringExtensions
+public static partial class StringExtensions
 {
     /// <summary>
     /// Sanitise a string to be stored in a bash variable.
@@ -36,4 +38,20 @@ public static class StringExtensions
 
         return text[..pos] + (replace ?? string.Empty) + text[(pos + search.Length)..];
     }
+
+    /// <summary>
+    /// Replaces multiple whitespace characters with a single space.
+    /// </summary>
+    /// <param name="text">The string to process.</param>
+    /// <returns>A new string with multiple whitespace characters collapsed into a single space.</returns>
+    public static string CollapseWhitespace(this string text)
+    {
+        return MultipleWhitespace().Replace(text, " ");
+    }
+
+    /// <summary>
+    /// A regex matching multiple whitespace characters.
+    /// </summary>
+    [GeneratedRegex(" +")]
+    private static partial Regex MultipleWhitespace();
 }

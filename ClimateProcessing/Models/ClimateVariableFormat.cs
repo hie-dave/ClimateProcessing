@@ -9,6 +9,14 @@ public record ClimateVariableFormat(ClimateVariable Variable, ProcessingStage St
 {
     /// <summary>
     /// Creates a <see cref="ClimateVariableFormat"/> representing a variable in
+    /// its preprocessed format.
+    /// </summary>
+    /// <param name="variable">The variable.</param>
+    /// <returns>A <see cref="ClimateVariableFormat"/> representing the variable in its preprocessed format.</returns>
+    public static ClimateVariableFormat Preprocessed(ClimateVariable variable) => new(variable, ProcessingStage.Preprocessed);
+
+    /// <summary>
+    /// Creates a <see cref="ClimateVariableFormat"/> representing a variable in
     /// its timeseries format.
     /// </summary>
     /// <param name="variable">The variable.</param>

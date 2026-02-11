@@ -33,6 +33,11 @@ public interface IJobCreationContext
     IScriptHeaderWriter PBSLightweight { get; }
 
     /// <summary>
+    /// The PBS script writer for preprocessing jobs.
+    /// </summary>
+    IScriptHeaderWriter PBSPreprocessing { get; }
+
+    /// <summary>
     /// The PBS heavyweight script writer.
     /// </summary>
     IScriptHeaderWriter PBSHeavyweight { get; }

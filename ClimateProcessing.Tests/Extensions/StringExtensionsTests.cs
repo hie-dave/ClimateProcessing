@@ -62,4 +62,15 @@ public class StringExtensionsTests
         string result = input.ReplaceFirst(search, null!);
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData("hello world", "hello world")]
+    [InlineData("x  y", "x y")]
+    [InlineData("hello          world ", "hello world ")]
+    [InlineData("x   y   z", "x y z")]
+    public void CollapseWhitespace(string input, string expected)
+    {
+        string result = input.CollapseWhitespace();
+        Assert.Equal(expected, result);
+    }
 }

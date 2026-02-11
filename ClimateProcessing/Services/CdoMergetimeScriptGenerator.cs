@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using ClimateProcessing.Extensions;
 using ClimateProcessing.Models;
 using ClimateProcessing.Models.Options;
@@ -9,20 +8,13 @@ namespace ClimateProcessing.Services;
 /// <summary>
 /// Generates CDO commands for processing climate data.
 /// </summary>
-public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
+public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator, IPreprocessingScriptGenerator
 {
     /// <summary>
     /// Name of the variable containing the directory holding all input files
     /// used as operands for the remap command.
     /// </summary>
     protected const string inDirVariable = "IN_DIR";
-
-    /// <summary>
-    /// Name of the variable containing the directory holding all modified input
-    /// files. Modified means any combination of remapped, unpacked, renamed,
-    /// aggregated, etc. This will not be used if no modifications are required.
-    /// </summary>
-    protected const string modDirVariable = "MOD_DIR";
 
     /// <summary>
     /// CDO's conservative remapping operator.
@@ -39,62 +31,30 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     /// </summary>
     private const string stdNameAttr = "standard_name";
 
+    /// <summary>
+    /// CDO operator which unpacks data (resolves add_offset and scale_factor).
+    /// </summary>
+    private const string unpackOperator = "-unpack";
+
+    /// <summary>
+    /// The name of the variable containing the directory holding all output
+    /// files from the preprocessing step.
+    /// </summary>
+    private const string preprocessingOutDirVariable = "OUT_DIR";
+
+    /// <summary>
+    /// The name of the variable containing the path to the file holding the
+    /// commands to be executed by nci-parallel.
+    /// </summary>
+    private const string commandsVar = "COMMANDS_FILE";
+
     /// <inheritdoc/>
     public async Task WriteMergetimeScriptAsync(IFileWriter writer, IMergetimeOptions options)
     {
-        string rename = GenerateRenameOperator(options.InputMetadata.Name, options.TargetMetadata.Name);
-        string conversion = string.Join(" ", GenerateUnitConversionOperators(options.TargetMetadata.Name, options.InputMetadata.Units, options.TargetMetadata.Units, options.InputTimeStep));
-        string aggregation = GenerateTimeAggregationOperator(options.InputTimeStep, options.OutputTimeStep, options.AggregationMethod);
-        string unpack = "-unpack";
-        string remapOperator = GetRemapOperator(options.RemapAlgorithm);
-        string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
-
-        string operators = $"{aggregation} {conversion} {rename} {unpack} {remap}";
-        operators = Regex.Replace(operators, " +", " ").Trim();
-
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");
-
-        if (!string.IsNullOrWhiteSpace(operators))
-            await writer.WriteLineAsync($"{modDirVariable}=\"${{WORK_DIR}}/mod\"");
         await writer.WriteLineAsync($"OUT_FILE=\"{options.OutputFile.SanitiseBash()}\"");
-        if (!string.IsNullOrEmpty(options.GridFile))
-            await writer.WriteLineAsync($"GRID_FILE=\"{options.GridFile.SanitiseBash()}\"");
         await writer.WriteLineAsync();
-
-        // Create mod directory if needed.
-        if (!string.IsNullOrWhiteSpace(operators))
-        {
-            await writer.WriteLineAsync($"mkdir -p \"${{{modDirVariable}}}\"");
-            await writer.WriteLineAsync();
-        }
-
-        await WritePreMerge(writer, options);
-
-        // The above operators all take a single file as input; therefore we
-        // must perform them as a separate step to the mergetime.
-        if (!string.IsNullOrWhiteSpace(operators))
-        {
-            // Write description of processing steps.
-            await writer.WriteLineAsync("# Perform corrective operations on input files:");
-            if (!string.IsNullOrEmpty(remap))
-                await writer.WriteLineAsync("# - Remap input files to target grid.");
-            if (!string.IsNullOrEmpty(unpack))
-                await writer.WriteLineAsync("# - Unpack data.");
-            if (!string.IsNullOrEmpty(rename))
-                await writer.WriteLineAsync($"# - Rename variable from {options.InputMetadata.Name} to {options.TargetMetadata.Name}.");
-            if (!string.IsNullOrEmpty(conversion))
-                await writer.WriteLineAsync($"# - Convert units from {options.InputMetadata.Units} to {options.TargetMetadata.Units}.");
-            if (!string.IsNullOrEmpty(aggregation))
-                await writer.WriteLineAsync($"# - Aggregate data from {options.InputTimeStep} to {options.OutputTimeStep}.");
-
-            await writer.WriteLineAsync($"for FILE in \"${{{inDirVariable}}}\"/*.nc");
-            await writer.WriteLineAsync($"do");
-            await writer.WriteLineAsync($"    cdo {GetCommonArgs()} {operators} \"${{FILE}}\" \"${{{modDirVariable}}}/$(basename \"${{FILE}}\")\"");
-            await writer.WriteLineAsync("done");
-            await writer.WriteLineAsync($"{inDirVariable}=\"${{{modDirVariable}}}\"");
-            await writer.WriteLineAsync();
-        }
 
         // The corrective operations read files from $IN_DIR and write to
         // $MOD_DIR, and then set IN_DIR=$MOD_DIR for the subsequent
@@ -109,6 +69,117 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
 
         // Remapped files are in jobfs, and will be automatically deleted upon
         // job completion (or failure), so no need for manual deletion.
+    }
+
+    /// <inheritdoc /> 
+    public async Task WritePreprocessingScriptAsync(IFileWriter writer, IPreprocessingOptions options)
+    {
+        const string commandsFile = "${WORK_DIR}/commands.txt";
+
+        string rename = GenerateRenameOperator(options.InputMetadata.Name, options.TargetMetadata.Name);
+        string conversion = string.Join(" ", GenerateUnitConversionOperators(options.TargetMetadata.Name, options.InputMetadata.Units, options.TargetMetadata.Units, options.InputTimeStep));
+        string aggregation = GenerateTimeAggregationOperator(options.InputTimeStep, options.OutputTimeStep, options.AggregationMethod);
+        string remapOperator = GetRemapOperator(options.RemapAlgorithm);
+        string remap = string.IsNullOrEmpty(options.GridFile) ? string.Empty : $"-{remapOperator},\"${{GRID_FILE}}\"";
+
+        // We always have at least the unpack operator.
+        string operators = $"{aggregation} {conversion} {rename} {unpackOperator} {remap}";
+        operators = operators.CollapseWhitespace().Trim();
+
+        await writer.WriteLineAsync("# File paths.");
+        await writer.WriteLineAsync($"{inDirVariable}=\"{options.InputDirectory.SanitiseBash()}\"");
+        await writer.WriteLineAsync($"{preprocessingOutDirVariable}=\"{options.OutputDirectory.SanitiseBash()}\"");
+        if (!string.IsNullOrEmpty(options.GridFile))
+            await writer.WriteLineAsync($"GRID_FILE=\"{options.GridFile.SanitiseBash()}\"");
+        if (options.NCpus > 1)
+            await writer.WriteLineAsync($"{commandsVar}=\"{commandsFile}\"");
+        await writer.WriteLineAsync();
+
+        // Create mod directory if needed.
+        await writer.WriteLineAsync($"mkdir -p \"${{{preprocessingOutDirVariable}}}\"");
+        await writer.WriteLineAsync();
+
+        // The above operators all take a single file as input; therefore we
+        // must perform them as a separate step to the mergetime.
+
+        // Write description of processing steps.
+        // FIXME: this won't appear directly above the commands when processing
+        // narclim2 data which overrides the contents method.
+        await writer.WriteLineAsync("# Perform corrective operations on input files:");
+        if (!string.IsNullOrEmpty(remap))
+            await writer.WriteLineAsync("# - Remap input files to target grid.");
+        if (!string.IsNullOrEmpty(unpackOperator))
+            await writer.WriteLineAsync("# - Unpack data.");
+        if (!string.IsNullOrEmpty(rename))
+            await writer.WriteLineAsync($"# - Rename variable from {options.InputMetadata.Name} to {options.TargetMetadata.Name}.");
+        if (!string.IsNullOrEmpty(conversion))
+            await writer.WriteLineAsync($"# - Convert units from {options.InputMetadata.Units} to {options.TargetMetadata.Units}.");
+        if (!string.IsNullOrEmpty(aggregation))
+            await writer.WriteLineAsync($"# - Aggregate data from {options.InputTimeStep} to {options.OutputTimeStep}.");
+
+        await WritePreprocessingContentsAsync(writer, operators, options.Dataset, options.NCpus);
+    }
+
+    /// <summary>
+    /// Writes the contents of the preprocessing script.
+    /// </summary>
+    /// <remarks>
+    /// TODO: refactor the narclim2 preprocessing. Should probably become its
+    /// own distinct preprocessor so that we don't have this clunky passing
+    /// around of operators/dataset.
+    /// </remarks>
+    /// <param name="writer">The script writer.</param>
+    /// <param name="operators">The operators to use.</param>
+    /// <param name="dataset">The dataset to process.</param>
+    /// <param name="ncpus">The number of CPUs to use for preprocessing.</param>
+    protected virtual async Task WritePreprocessingContentsAsync(IFileWriter writer, string operators, IClimateDataset dataset, int ncpus)
+    {
+        if (ncpus == 1)
+            await WriteSerialPreprocessingAsync(writer, operators);
+        else
+            await WriteParallelPreprocessingAsync(writer, operators, ncpus);
+    }
+
+    /// <summary>
+    /// Writes the contents of the preprocessing script for a single CPU.
+    /// </summary>
+    /// <param name="writer">The script writer.</param>
+    /// <param name="operators">The operators to use.</param>
+    private static async Task WriteSerialPreprocessingAsync(IFileWriter writer, string operators)
+    {
+        await writer.WriteLineAsync($"for FILE in \"${{{inDirVariable}}}\"/*.nc");
+        await writer.WriteLineAsync($"do");
+        await writer.WriteLineAsync($"    cdo {GetCommonArgs()} {operators} \"${{FILE}}\" \"${{{preprocessingOutDirVariable}}}/$(basename \"${{FILE}}\")\"");
+        await writer.WriteLineAsync("done");
+    }
+
+    /// <summary>
+    /// Writes the contents of the preprocessing script for multiple CPUs.
+    /// </summary>
+    /// <param name="writer">The script writer.</param>
+    /// <param name="operators">The operators to use.</param>
+    /// <param name="ncpus">The number of CPUs to use.</param>
+    private static async Task WriteParallelPreprocessingAsync(IFileWriter writer, string operators, int ncpus)
+    {
+        // We use the nci-parallel command, which is specific to the gadi HPC.
+        // This command takes a --input-file <file> argument, which is a file
+        // containing commands to be executed, one per line.
+
+        // First, we need to generate the commands file. Iterate over all files
+        // in the input directory, and generate the commands to preprocess them.
+        await writer.WriteLineAsync($"# Generate commands file.");
+        await writer.WriteLineAsync($"for FILE in \"${{{inDirVariable}}}\"/*.nc");
+        await writer.WriteLineAsync($"do");
+        await writer.WriteLineAsync($"    echo cdo {GetCommonArgs()} {operators} \"${{FILE}}\" \"${{{preprocessingOutDirVariable}}}/$(basename \"${{FILE}}\")\" >> \"${{{commandsVar}}}\"");
+        await writer.WriteLineAsync("done");
+        await writer.WriteLineAsync();
+
+        await writer.WriteLineAsync("# Load additional modules required for parallel processing.");
+        await writer.WriteLineAsync("module load openmpi nci-parallel");
+        await writer.WriteLineAsync();
+
+        await writer.WriteLineAsync(" # Pre-process files in parallel.");
+        await writer.WriteLineAsync($"mpirun -n {ncpus} nci-parallel --input-file \"${{{commandsVar}}}\"");
     }
 
     /// <summary>
@@ -205,17 +276,6 @@ public class CdoMergetimeScriptGenerator : IMergetimeScriptGenerator
     internal static string GetCommonArgs()
     {
         return $"-L -O -v -z zip1";
-    }
-
-    /// <summary>
-    /// Write any pre-merge commands to the specified writer.
-    /// </summary>
-    /// <param name="writer">The text writer.</param>
-    /// <param name="options">Options for the mergetime operation.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    protected virtual Task WritePreMerge(IFileWriter writer, IMergetimeOptions options)
-    {
-        return Task.CompletedTask;
     }
 
     /// <summary>

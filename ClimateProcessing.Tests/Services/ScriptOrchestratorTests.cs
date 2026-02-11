@@ -1,5 +1,5 @@
-using Xunit;
 using ClimateProcessing.Services;
+using Xunit;
 using ClimateProcessing.Models;
 using ClimateProcessing.Tests.Mocks;
 using Xunit.Abstractions;
@@ -13,6 +13,7 @@ namespace ClimateProcessing.Tests.Services;
 
 public class ScriptOrchestratorTests : IDisposable
 {
+    private readonly bool emitNormalisedScripts = false;
     private readonly ITestOutputHelper outputHelper;
     private readonly TempDirectory tempDirectory;
     private readonly NarClim2Config _config;
@@ -200,6 +201,12 @@ public class ScriptOrchestratorTests : IDisposable
             "mergetime_rsds_DynamicMockDataset",
             "mergetime_sfcWind_DynamicMockDataset",
             "mergetime_tas_DynamicMockDataset",
+            "preprocess_huss_DynamicMockDataset",
+            "preprocess_pr_DynamicMockDataset",
+            "preprocess_ps_DynamicMockDataset",
+            "preprocess_rsds_DynamicMockDataset",
+            "preprocess_sfcWind_DynamicMockDataset",
+            "preprocess_tas_DynamicMockDataset",
             "rechunk_huss_DynamicMockDataset",
             "rechunk_pr_DynamicMockDataset",
             "rechunk_ps_DynamicMockDataset",
@@ -209,6 +216,22 @@ public class ScriptOrchestratorTests : IDisposable
             "rechunk_vpd_DynamicMockDataset",
             "submit_DynamicMockDataset"
         ];
+
+        if (emitNormalisedScripts)
+        {
+            string normalisedScriptPath = Directory.CreateTempSubdirectory(GetType().Name).FullName;
+            foreach (string scriptPath in Directory.EnumerateFileSystemEntries(scriptsDirectory))
+            {
+                string scriptName = Path.GetFileName(scriptPath);
+                string actualScript = await File.ReadAllTextAsync(scriptPath);
+
+                string normalisedScript = actualScript.Replace(tempDirectory.AbsolutePath, "@#OUTPUT_DIRECTORY#@");
+
+                string normalisedScriptFile = Path.Combine(normalisedScriptPath, scriptName);
+                await File.WriteAllTextAsync(normalisedScriptFile, normalisedScript);
+            }
+            outputHelper.WriteLine($"Normalised scripts to: {normalisedScriptPath}");
+        }
 
         Assert.Equal(expectedScriptNames.Count(), Directory.EnumerateFileSystemEntries(scriptsDirectory).Count());
 

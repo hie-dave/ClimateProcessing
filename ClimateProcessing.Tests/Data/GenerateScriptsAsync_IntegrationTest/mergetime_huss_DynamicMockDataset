@@ -38,22 +38,8 @@ log() {
 }
 
 # File paths.
-IN_DIR="/input/SpecificHumidity"
-MOD_DIR="${WORK_DIR}/mod"
+IN_DIR="@#OUTPUT_DIRECTORY#@/tmp/dynamic_mock/huss"
 OUT_FILE="@#OUTPUT_DIRECTORY#@/tmp/dynamic_mock/huss_output.nc"
-GRID_FILE="/home/giraffe/grid.nc"
-
-mkdir -p "${MOD_DIR}"
-
-# Perform corrective operations on input files:
-# - Remap input files to target grid.
-# - Unpack data.
-# - Aggregate data from 1hour to 3hour.
-for FILE in "${IN_DIR}"/*.nc
-do
-    cdo -L -O -v -z zip1 -timselmean,3 -unpack -remapbil,"${GRID_FILE}" "${FILE}" "${MOD_DIR}/$(basename "${FILE}")"
-done
-IN_DIR="${MOD_DIR}"
 
 log "Merging files..."
 cdo -L -O -v -z zip1 mergetime "${IN_DIR}"/*.nc "${OUT_FILE}"

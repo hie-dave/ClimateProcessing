@@ -1,3 +1,4 @@
+using ClimateProcessing.Extensions;
 using ClimateProcessing.Models;
 using ClimateProcessing.Models.Options;
 
@@ -13,6 +14,11 @@ namespace ClimateProcessing.Services.Processors;
 /// </remarks>
 public class StandardVariableProcessor : IVariableProcessor
 {
+    /// <summary>
+    /// The preprocessing script generator.
+    /// </summary>
+    private readonly IPreprocessingScriptGenerator preprocessingGenerator;
+
     /// <summary>
     /// The mergetime script generator.
     /// </summary>
@@ -40,7 +46,10 @@ public class StandardVariableProcessor : IVariableProcessor
     /// </summary>
     /// <param name="targetVariable">The target variable.</param>
     public StandardVariableProcessor(ClimateVariable targetVariable)
-        : this(targetVariable, new CdoMergetimeScriptGenerator(), new NcoRechunkScriptGenerator())
+        : this(targetVariable,
+               new CdoMergetimeScriptGenerator(),
+               new CdoMergetimeScriptGenerator(),
+               new NcoRechunkScriptGenerator())
     {
     }
 
@@ -48,16 +57,17 @@ public class StandardVariableProcessor : IVariableProcessor
     /// Creates a new standard variable processor.
     /// </summary>
     /// <param name="targetVariable">The target variable.</param>
+    /// <param name="preprocessingGenerator">The preprocessing script generator.</param>
     /// <param name="mergetimeGenerator">The mergetime script generator.</param>
     /// <param name="rechunkingGenerator">The rechunking script generator.</param>
-    /// <param name="pathManager">The path manager.</param>
-    /// <param name="config">The processing configuration.</param>
     public StandardVariableProcessor(
         ClimateVariable targetVariable,
+        IPreprocessingScriptGenerator preprocessingGenerator,
         IMergetimeScriptGenerator mergetimeGenerator,
         IRechunkScriptGenerator rechunkingGenerator)
     {
         TargetVariable = targetVariable;
+        this.preprocessingGenerator = preprocessingGenerator;
         this.mergetimeGenerator = mergetimeGenerator;
         this.rechunkGenerator = rechunkingGenerator;
     }
@@ -67,10 +77,60 @@ public class StandardVariableProcessor : IVariableProcessor
         IClimateDataset dataset,
         IJobCreationContext context)
     {
-        Job mergetime = await GenerateMergetimeJob(dataset, context);
+        Job preprocessingJob = await GeneratePreprocessingJob(dataset, context);
+        Job mergetime = await GenerateMergetimeJob(dataset, context, preprocessingJob);
         Job rechunk = await GenerateRechunkJob(dataset, context, mergetime);
 
         return [mergetime, rechunk];
+    }
+
+    private async Task<Job> GeneratePreprocessingJob(
+        IClimateDataset dataset,
+        IJobCreationContext context)
+    {
+        VariableInfo inputMetadata = dataset.GetVariableInfo(TargetVariable);
+        VariableInfo targetMetadata = context.VariableManager.GetOutputRequirements(TargetVariable);
+
+        // File paths.
+        string inDir = dataset.GetInputFilesDirectory(TargetVariable);
+        string outDir = context.PathManager.GetDatasetPath(dataset, PathType.Working);
+        outDir = Path.Combine(outDir, targetMetadata.Name);
+
+        List<string> requiredFiles = [inDir, outDir];
+        if (!string.IsNullOrEmpty(context.Config.GridFile))
+            requiredFiles.Add(context.Config.GridFile);
+        IEnumerable<PBSStorageDirective> storageDirectives =
+            PBSStorageHelper.GetStorageDirectives(requiredFiles);
+
+        // Create script directory if it doesn't already exist.
+        // This should be unnecessary at this point.
+        string jobName = GetJobName("preprocess", inputMetadata, dataset);
+        using IFileWriter writer = context.FileWriterFactory.Create(jobName);
+        await context.PBSPreprocessing.WriteHeaderAsync(writer, jobName, storageDirectives);
+
+        PreprocessingOptions preprocessOptions = new PreprocessingOptions(
+            inDir,
+            outDir,
+            inputMetadata,
+            targetMetadata,
+            context.Config.InputTimeStep,
+            context.Config.OutputTimeStep,
+            context.VariableManager.GetAggregationMethod(TargetVariable),
+            context.Config.GridFile,
+            context.Remapper.GetInterpolationAlgorithm(inputMetadata, TargetVariable),
+            false,
+            context.Config.Ncpus,
+            dataset
+        );
+
+        await preprocessingGenerator.WritePreprocessingScriptAsync(writer, preprocessOptions);
+        return new Job(
+            jobName,
+            writer.FilePath,
+            ClimateVariableFormat.Preprocessed(TargetVariable),
+            outDir,
+            [] // No dependencies
+        );
     }
 
     /// <summary>
@@ -79,14 +139,17 @@ public class StandardVariableProcessor : IVariableProcessor
     /// </summary>
     /// <param name="dataset">The dataset to process.</param>
     /// <param name="context">The job creation context.</param>
+    /// <param name="preprocessingJob">The preprocessing job.</param>
     /// <returns>The generated mergetime job.</returns>
-    private async Task<Job> GenerateMergetimeJob(IClimateDataset dataset, IJobCreationContext context)
+    private async Task<Job> GenerateMergetimeJob(
+        IClimateDataset dataset,
+        IJobCreationContext context,
+        Job preprocessingJob)
     {
         VariableInfo inputMetadata = dataset.GetVariableInfo(TargetVariable);
-        VariableInfo targetMetadata = context.VariableManager.GetOutputRequirements(TargetVariable);
 
-        // File paths.
-        string inDir = dataset.GetInputFilesDirectory(TargetVariable);
+        // Use output directory of pre-processing as input directory.
+        string inDir = preprocessingJob.OutputPath;
 
         // TODO: this will generate an output file name which uses the name of
         // the variable from the input dataset. This will be incorrect if the
@@ -113,21 +176,7 @@ public class StandardVariableProcessor : IVariableProcessor
         using IFileWriter writer = context.FileWriterFactory.Create(jobName);
         await context.PBSLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
 
-        MergetimeOptions opts = new MergetimeOptions(
-            inDir,
-            outFile,
-            inputMetadata,
-            targetMetadata,
-            context.Config.InputTimeStep,
-            context.Config.OutputTimeStep,
-            context.VariableManager.GetAggregationMethod(TargetVariable),
-            context.Config.GridFile,
-            context.Remapper.GetInterpolationAlgorithm(inputMetadata, TargetVariable),
-            false,
-            false,
-            dataset
-        );
-
+        MergetimeOptions opts = new MergetimeOptions(inDir, outFile);
         await mergetimeGenerator.WriteMergetimeScriptAsync(writer, opts);
 
         return new Job(
@@ -135,7 +184,7 @@ public class StandardVariableProcessor : IVariableProcessor
             writer.FilePath,
             ClimateVariableFormat.Timeseries(TargetVariable),
             outFile,
-            [] // No dependencies
+            [preprocessingJob]
         );
     }
 

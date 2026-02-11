@@ -119,12 +119,12 @@ public class CdoMergetimeScriptGeneratorTests
         InterpolationAlgorithm algorithm,
         string expectedOperator)
     {
-        MutableMergetimeOptions options = new();
+        MutablePreprocessingOptions options = new();
         options.GridFile = "grid.file";
         options.RemapAlgorithm = algorithm;
 
         using InMemoryScriptWriter writer = new InMemoryScriptWriter();
-        await generator.WriteMergetimeScriptAsync(writer, options);
+        await generator.WritePreprocessingScriptAsync(writer, options);
 
         string script = writer.GetContent();
         // Note: best not to assume that the raw file name is passed as the
@@ -137,12 +137,12 @@ public class CdoMergetimeScriptGeneratorTests
     [Fact]
     public async Task NoGridFile_DoesNotRemap()
     {
-        MutableMergetimeOptions options = new();
+        MutablePreprocessingOptions options = new();
         options.GridFile = null;
         options.RemapAlgorithm = InterpolationAlgorithm.Bilinear;
 
         using InMemoryScriptWriter writer = new InMemoryScriptWriter();
-        await generator.WriteMergetimeScriptAsync(writer, options);
+        await generator.WritePreprocessingScriptAsync(writer, options);
 
         string script = writer.GetContent();
         Assert.DoesNotContain("remap", script);
@@ -175,7 +175,7 @@ public class CdoMergetimeScriptGeneratorTests
     [InlineData(ClimateVariable.ShortwaveRadiation, 1, 3, "rsds", "W m-2", "-timselmean,3")] // Aggregation but no unit conversion (intensive variable)
     [InlineData(ClimateVariable.Precipitation, 1, 12, "pr", "mm", "-timselsum,12")] // Aggregation but no unit conversion (extensive variable)
     [InlineData(ClimateVariable.SurfacePressure, 1, 1, "ps", "kPa", null, "-mulc,1000", "-setattribute,'ps@units=Pa'")] // Unit conversion but no aggregation
-    public async Task GenerateVariableMergeScript_GeneratesValidCDORemapCommand(
+    public async Task GenerateVariableMergeScript_HandlesAllProcessingStepsCorrectly(
         ClimateVariable variable,
         int inputTimestepHours,
         int outputTimestepHours,
@@ -185,14 +185,45 @@ public class CdoMergetimeScriptGeneratorTests
         string? unitConversionOperator = null,
         string? unitRenameOperator = null)
     {
-        ClimateVariableManager manager = new ClimateVariableManager(ModelVersion.Dave);
+        const ModelVersion version = ModelVersion.Dave;
+        IClimateVariableManager manager = new ClimateVariableManager(version);
 
+        MutablePreprocessingOptions opts = new MutablePreprocessingOptions();
+        opts.InputMetadata = new VariableInfo(varName, inputUnits);
+        opts.TargetMetadata = manager.GetOutputRequirements(variable);
+        opts.InputTimeStep = new TimeStep(inputTimestepHours);
+        opts.OutputTimeStep = new TimeStep(outputTimestepHours);
+        opts.AggregationMethod = manager.GetAggregationMethod(variable);
+
+        using InMemoryScriptWriter writer = new InMemoryScriptWriter();
+        await generator.WritePreprocessingScriptAsync(writer, opts);
+        string scriptContent = writer.GetContent();
+
+        // TODO: verify that files are unpacked
+        Assert.Contains("-unpack", scriptContent);
+
+        if (temporalAggregationOperator is null)
+            foreach (string @operator in cdoTemporalAggregationOperators)
+                Assert.DoesNotContain(@operator, scriptContent);
+        else
+            Assert.Contains(temporalAggregationOperator, scriptContent);
+
+        if (unitConversionOperator is null)
+            foreach (string @operator in cdoArithmeticOperators)
+                Assert.DoesNotContain(@operator, scriptContent);
+        else
+            Assert.Contains(unitConversionOperator, scriptContent);
+
+        if (unitRenameOperator is null)
+            Assert.DoesNotContain("setattribute", scriptContent);
+        else
+            Assert.Contains(unitRenameOperator, scriptContent);
+    }
+
+    [Fact]
+    public async Task GenerateVariableMergeScript_GeneratesValidMergetimeCommand()
+    {
         MutableMergetimeOptions options = new MutableMergetimeOptions();
-        options.InputMetadata = new VariableInfo(varName, inputUnits);
-        options.TargetMetadata = manager.GetOutputRequirements(variable);
-        options.InputTimeStep = new TimeStep(inputTimestepHours);
-        options.OutputTimeStep = new TimeStep(outputTimestepHours);
-        options.AggregationMethod = manager.GetAggregationMethod(variable);
 
         using InMemoryScriptWriter writer = new InMemoryScriptWriter();
         await generator.WriteMergetimeScriptAsync(writer, options);
@@ -217,42 +248,17 @@ public class CdoMergetimeScriptGeneratorTests
         // Should use -z zip1 for efficiency.
         Assert.Contains("-z zip1", line);
 
-        // Should unpack data.
-        Assert.Contains("-unpack", line);
+        // Should not unpack data - this is handled by the preprocessing step.
+        Assert.DoesNotContain("-unpack", line);
 
-        // Should apply operators (or not).
-        int previousOperatorIndex = -1;
-        if (temporalAggregationOperator is null)
-            foreach (string @operator in cdoTemporalAggregationOperators)
-                Assert.DoesNotContain(@operator, line);
-        else
-        {
-            Assert.Contains(temporalAggregationOperator, line);
-            int operatorIndex = line.IndexOf(temporalAggregationOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{temporalAggregationOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
+        // Should not apply operators.
+        foreach (string @operator in cdoTemporalAggregationOperators)
+            Assert.DoesNotContain(@operator, line);
 
-        if (unitConversionOperator is null)
-            foreach (string @operator in cdoArithmeticOperators)
-                Assert.DoesNotContain(@operator, line);
-        else
-        {
-            Assert.Contains(unitConversionOperator, line);
-            int operatorIndex = line.IndexOf(unitConversionOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{unitConversionOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
+        foreach (string @operator in cdoArithmeticOperators)
+            Assert.DoesNotContain(@operator, line);
 
-        if (unitRenameOperator is null)
-            Assert.DoesNotContain("setattribute,units", line);
-        else
-        {
-            Assert.Contains(unitRenameOperator, line);
-            int operatorIndex = line.IndexOf(unitRenameOperator);
-            Assert.True(operatorIndex > previousOperatorIndex, $"Operator '{unitRenameOperator}' appears out of order in CDO command.");
-            previousOperatorIndex = operatorIndex;
-        }
+        Assert.DoesNotContain("setattribute,units", line);
 
         // TODO: assert that no additional arguments are present.
 
@@ -267,12 +273,12 @@ public class CdoMergetimeScriptGeneratorTests
         string expectedOutputName)
     {
         const string units = "xyz";
-        MutableMergetimeOptions options = new MutableMergetimeOptions();
+        MutablePreprocessingOptions options = new();
         options.InputMetadata = new VariableInfo(inputName, units);
         options.TargetMetadata = new VariableInfo(expectedOutputName, units);
 
         using InMemoryScriptWriter writer = new InMemoryScriptWriter();
-        await generator.WriteMergetimeScriptAsync(writer, options);
+        await generator.WritePreprocessingScriptAsync(writer, options);
         string scriptContent = writer.GetContent();
 
         Assert.Contains($"-chname,'{inputName}','{expectedOutputName}'", scriptContent);

@@ -1,7 +1,5 @@
 # TODO
 
-- Add concrete usage example to README
-- Replace most tests' file-based script writers with in-memory writers
 - Refactor VpdCalculator to generate equations dynamically based on the units of
   the input variables
 - Refactor an IScriptHeaderWriter interface out of PBSWriter for easier testing
@@ -31,6 +29,10 @@
 - Improve data structure used for unit synonyms. Having a collection of hashsets
   would make more sense. Having a key-array pair doesn't make sense because the
   key must be part of the array anyway
+- Ensure that output files have a units attribute
+- Refactor the narclim2 preprocessing. Should probably become its own distinct
+  preprocessor so that we don't have this clunky passing around of
+  operators/dataset.
 
 ### Cordex Dataset tests
 
@@ -39,21 +41,3 @@ Write tests for:
 - cordex config and its validation
 - cordex version realisation and its interaction with activity
 - cordex dataset appends "Adjust" to variable names for bias-adjusted output
-
-### ScriptContentGenerator (or NcoScriptGenerator)
-
-- Merge script content generation
-- Rechunk script content generation
-- Cleanup script content generation
-
-### Job Orchestration (current ScriptGenerator)
-
-- Generate qsub commands
-- Manage PBS job dependencies
-- All other responsibilities offloaded to dedicated services
-
-### Ability to calculate/estimate some variables from others
-
-- Already do this for VPD (VpdCalculator)
-- Cordex dataset requires this for relative humidity
-- Some datasets may need to do this for temp from min/max temp

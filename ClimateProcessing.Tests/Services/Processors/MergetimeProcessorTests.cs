@@ -42,8 +42,9 @@ public sealed class MergetimeProcessorTests : IDisposable
     public void Constructor_WithTargetVariableAndScriptGenerator_InitializesProperties()
     {
         var mockScriptGenerator = new Mock<IMergetimeScriptGenerator>();
+        var mockPreprocessor = new Mock<IPreprocessingScriptGenerator>();
 
-        var processor = new MergetimeProcessor(targetVariable, mockScriptGenerator.Object);
+        var processor = new MergetimeProcessor(targetVariable, mockPreprocessor.Object, mockScriptGenerator.Object);
 
         Assert.Equal(targetVariable, processor.TargetVariable);
         Assert.Equal(ClimateVariableFormat.Timeseries(targetVariable), processor.OutputFormat);
@@ -55,7 +56,8 @@ public sealed class MergetimeProcessorTests : IDisposable
     public async Task CreateJobsAsync_ReturnsExpectedJob()
     {
         var mockScriptGenerator = new Mock<IMergetimeScriptGenerator>();
-        var processor = new MergetimeProcessor(targetVariable, mockScriptGenerator.Object);
+        var mockPreprocessor = new Mock<IPreprocessingScriptGenerator>();
+        var processor = new MergetimeProcessor(targetVariable, mockPreprocessor.Object, mockScriptGenerator.Object);
 
         string datasetPath = Path.Combine(workingDirectory.AbsolutePath, "dataset");
         string inputDir = Path.Combine(datasetPath, "input");
@@ -80,12 +82,11 @@ public sealed class MergetimeProcessorTests : IDisposable
         context.MockPathManager.SetBasePath(PathType.Working, outDir);
 
         // Setup script generator to verify options
-        mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))
-            .Callback<IFileWriter, IMergetimeOptions>((writer, options) => 
+        mockPreprocessor.Setup(sg => sg.WritePreprocessingScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IPreprocessingOptions>()))
+            .Callback<IFileWriter, IPreprocessingOptions>((writer, options) => 
             {
                 // Verify options
                 Assert.Equal(inputDir, options.InputDirectory);
-                Assert.Equal(Path.GetFullPath(outputFile), options.OutputFile);
                 Assert.Equal(variableInfo, options.InputMetadata);
                 Assert.Equal(variableInfo, options.TargetMetadata);
                 Assert.Equal(context.Config.InputTimeStep, options.InputTimeStep);
@@ -93,22 +94,42 @@ public sealed class MergetimeProcessorTests : IDisposable
                 Assert.Equal(AggregationMethod.Mean, options.AggregationMethod);
                 Assert.Null(options.GridFile);
                 Assert.Equal(InterpolationAlgorithm.Bilinear, options.RemapAlgorithm);
-                Assert.False(options.Unpack);
-                Assert.False(options.Compress);
+                Assert.True(options.Unpack);
+                // Assert.False(options.Compress);
                 Assert.Same(mockDataset.Object, options.Dataset);
+            })
+            .Returns(Task.CompletedTask);
+        string? mergetimeInputPath = null;
+        mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))
+            .Callback<IFileWriter, IMergetimeOptions>((writer, options) => 
+            {
+                // Verify options
+                Assert.Equal(Path.GetFullPath(outputFile), options.OutputFile);
+                mergetimeInputPath = options.InputDirectory;
             })
             .Returns(Task.CompletedTask);
 
         var jobs = await processor.CreateJobsAsync(mockDataset.Object, context);
 
-        Assert.Single(jobs);
-        var job = jobs[0];
+        // This now creates two jobs - preprocessing, and mergetime.
+        Assert.Equal(2, jobs.Count);
+        var preprocessingJob = jobs[0];
+        Assert.Equal($"preprocessing_{variableInfo.Name}_{datasetName}", preprocessingJob.Name);
+        Assert.Equal(InMemoryScriptWriter.ScriptName, preprocessingJob.ScriptPath);
+        Assert.Equal(ClimateVariableFormat.Preprocessed(targetVariable), preprocessingJob.Output);
+        Assert.Empty(preprocessingJob.Dependencies);
 
-        Assert.Equal($"mergetime_{variableInfo.Name}_{mockDataset.Object.DatasetName}", job.Name);
-        Assert.Equal(InMemoryScriptWriter.ScriptName, job.ScriptPath);
-        Assert.Equal(ClimateVariableFormat.Timeseries(targetVariable), job.Output);
-        Assert.Equal(Path.GetFullPath(outputFile), job.OutputPath);
-        Assert.Empty(job.Dependencies);
+        var mergetimeJob = jobs[1];
+
+        Assert.Equal($"mergetime_{variableInfo.Name}_{mockDataset.Object.DatasetName}", mergetimeJob.Name);
+        Assert.Equal(InMemoryScriptWriter.ScriptName, mergetimeJob.ScriptPath);
+        Assert.Equal(ClimateVariableFormat.Timeseries(targetVariable), mergetimeJob.Output);
+        Assert.Equal(Path.GetFullPath(outputFile), mergetimeJob.OutputPath);
+        Job dep = Assert.Single(mergetimeJob.Dependencies);
+        Assert.Same(preprocessingJob, dep);
+
+        // Verify mergetime input path is the output of the preprocessing job.
+        Assert.Equal(preprocessingJob.OutputPath, mergetimeInputPath);
 
         // Verify script generator was called
         mockScriptGenerator.Verify(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()), Times.Once);
@@ -118,7 +139,8 @@ public sealed class MergetimeProcessorTests : IDisposable
     public async Task CreateJobsAsync_WithGridFile_PassesGridFileToOptions()
     {
         var mockScriptGenerator = new Mock<IMergetimeScriptGenerator>();
-        var processor = new MergetimeProcessor(targetVariable, mockScriptGenerator.Object);
+        var mockPreprocessingGenerator = new Mock<IPreprocessingScriptGenerator>();
+        var processor = new MergetimeProcessor(targetVariable, mockPreprocessingGenerator.Object, mockScriptGenerator.Object);
 
         string inputPath = Path.Combine(workingDirectory.AbsolutePath, "input");
         string outputPath = Path.Combine(workingDirectory.AbsolutePath, "output");
@@ -132,7 +154,9 @@ public sealed class MergetimeProcessorTests : IDisposable
 
         bool gridFileVerified = false;
         mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))
-            .Callback<IFileWriter, IMergetimeOptions>((writer, options) => 
+            .Returns(Task.CompletedTask);
+        mockPreprocessingGenerator.Setup(pg => pg.WritePreprocessingScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IPreprocessingOptions>()))
+            .Callback<IFileWriter, IPreprocessingOptions>((writer, options) => 
             {
                 Assert.Equal(gridFile, options.GridFile);
                 gridFileVerified = true;
@@ -148,7 +172,8 @@ public sealed class MergetimeProcessorTests : IDisposable
     public async Task CreateJobsAsync_WithDifferentTimeSteps_PassesTimeStepsToOptions()
     {
         var mockScriptGenerator = new Mock<IMergetimeScriptGenerator>();
-        var processor = new MergetimeProcessor(targetVariable, mockScriptGenerator.Object);
+        var mockPreprocessingGenerator = new Mock<IPreprocessingScriptGenerator>();
+        var processor = new MergetimeProcessor(targetVariable, mockPreprocessingGenerator.Object, mockScriptGenerator.Object);
 
         string inputPath = Path.Combine(workingDirectory.AbsolutePath, "in");
         string outputPath = Path.Combine(workingDirectory.AbsolutePath, "out");
@@ -160,14 +185,15 @@ public sealed class MergetimeProcessorTests : IDisposable
 
         bool timeStepsVerified = false;
         mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))
-            .Callback<IFileWriter, IMergetimeOptions>((writer, options) => 
+            .Returns(Task.CompletedTask);
+        mockPreprocessingGenerator.Setup(pg => pg.WritePreprocessingScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IPreprocessingOptions>()))
+            .Callback<IFileWriter, IPreprocessingOptions>((writer, options) =>
             {
                 Assert.Equal(3, options.InputTimeStep.Hours);
                 Assert.Equal(24, options.OutputTimeStep.Hours);
                 timeStepsVerified = true;
             })
             .Returns(Task.CompletedTask);
-
         await processor.CreateJobsAsync(dataset, context);
 
         Assert.True(timeStepsVerified, "Time steps were not properly passed to options");
@@ -177,7 +203,8 @@ public sealed class MergetimeProcessorTests : IDisposable
     public async Task CreateJobsAsync_WithDifferentVariableNames_PassesCorrectMetadataToOptions()
     {
         Mock<IMergetimeScriptGenerator> mockScriptGenerator = new();
-        MergetimeProcessor processor = new(targetVariable, mockScriptGenerator.Object);
+        Mock<IPreprocessingScriptGenerator> mockPreprocessingScriptGenerator = new();
+        MergetimeProcessor processor = new(targetVariable, mockPreprocessingScriptGenerator.Object, mockScriptGenerator.Object);
 
         DynamicMockDataset dataset = new DynamicMockDataset(workingDirectory.AbsolutePath);
         dataset.SetVariableInfo(targetVariable, "temperature", "C");
@@ -192,6 +219,11 @@ public sealed class MergetimeProcessorTests : IDisposable
         bool metadataVerified = false;
         mockScriptGenerator.Setup(sg => sg.WriteMergetimeScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IMergetimeOptions>()))
             .Callback<IFileWriter, IMergetimeOptions>((writer, options) => 
+            {
+            })
+            .Returns(Task.CompletedTask);
+        mockPreprocessingScriptGenerator.Setup(pg => pg.WritePreprocessingScriptAsync(It.IsAny<IFileWriter>(), It.IsAny<IPreprocessingOptions>()))
+            .Callback<IFileWriter, IPreprocessingOptions>((writer, options) =>
             {
                 Assert.Equal(dataset.GetVariableInfo(targetVariable), options.InputMetadata);
                 Assert.Equal(outputVariableInfo, options.TargetMetadata);

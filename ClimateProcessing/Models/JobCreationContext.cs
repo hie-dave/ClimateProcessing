@@ -26,6 +26,9 @@ public class JobCreationContext : IJobCreationContext
     public IScriptHeaderWriter PBSHeavyweight { get; }
 
     /// <inheritdoc />
+    public IScriptHeaderWriter PBSPreprocessing { get; }
+
+    /// <inheritdoc />
     public IRemappingService Remapper { get; }
 
     /// <inheritdoc />
@@ -37,6 +40,12 @@ public class JobCreationContext : IJobCreationContext
     /// <param name="processingConfig">The processing configuration.</param>
     /// <param name="pathManager">The path manager.</param>
     /// <param name="fileWriterFactory">The file writer factory.</param>
+    /// <param name="variableManager">The climate variable manager.</param>
+    /// <param name="pbsLightweight">The PBS lightweight script writer.</param>
+    /// <param name="pbsHeavyweight">The PBS heavyweight script writer.</param>
+    /// <param name="pbsPreprocessing">The PBS preprocessing script writer.</param>
+    /// <param name="remapper">The remapping service.</param>
+    /// <param name="dependencyResolver">The dependency resolver.</param>
     public JobCreationContext(
         ProcessingConfig processingConfig,
         IPathManager pathManager,
@@ -44,6 +53,7 @@ public class JobCreationContext : IJobCreationContext
         IClimateVariableManager variableManager,
         IScriptHeaderWriter pbsLightweight,
         IScriptHeaderWriter pbsHeavyweight,
+        IScriptHeaderWriter pbsPreprocessing,
         IRemappingService remapper,
         IDependencyResolver dependencyResolver)
     {
@@ -53,6 +63,7 @@ public class JobCreationContext : IJobCreationContext
         VariableManager = variableManager;
         PBSLightweight = pbsLightweight;
         PBSHeavyweight = pbsHeavyweight;
+        PBSPreprocessing = pbsPreprocessing;
         Remapper = remapper;
         DependencyResolver = dependencyResolver;
     }

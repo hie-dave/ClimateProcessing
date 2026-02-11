@@ -33,12 +33,17 @@ public class ScriptOrchestrator : IScriptGenerator
     /// <summary>
     /// The PBS script generator service.
     /// </summary>
-    protected readonly PBSWriter pbsHeavyweight;
+    protected readonly PBSWriter pbsRechunk;
 
     /// <summary>
     /// The PBS script generator service.
     /// </summary>
-    protected readonly PBSWriter pbsLightweight;
+    protected readonly PBSWriter pbsMergetime;
+
+    /// <summary>
+    /// The PBS script generator service for pre-processing jobs.
+    /// </summary>
+    protected readonly PBSWriter pbsPreprocessing;
 
     /// <summary>
     /// The remapping service.
@@ -118,7 +123,8 @@ public class ScriptOrchestrator : IScriptGenerator
         this.variableProcessorSorter = variableProcessorSorter;
 
         PBSWalltime walltime = PBSWalltime.Parse(config.Walltime);
-        PBSConfig pbsConfig = new(
+
+        PBSConfig preprocessingConfig = new PBSConfig(
             config.Queue,
             config.Ncpus,
             config.Memory,
@@ -128,7 +134,19 @@ public class ScriptOrchestrator : IScriptGenerator
             config.EmailNotifications,
             config.Email
         );
-        pbsHeavyweight = new PBSWriter(pbsConfig, pathManager);
+        pbsPreprocessing = new PBSWriter(preprocessingConfig, pathManager);
+
+        PBSConfig pbsConfig = new(
+            config.Queue,
+            1,
+            config.Memory,
+            config.JobFS,
+            config.Project,
+            walltime,
+            config.EmailNotifications,
+            config.Email
+        );
+        pbsRechunk = new PBSWriter(pbsConfig, pathManager);
 
         PBSConfig lightweightConfig = PBSConfig.LightWeight(
             config.JobFS,
@@ -137,7 +155,7 @@ public class ScriptOrchestrator : IScriptGenerator
             config.Email,
             walltime
         );
-        pbsLightweight = new PBSWriter(lightweightConfig, pathManager);
+        pbsMergetime = new PBSWriter(lightweightConfig, pathManager);
         variableManager = new ClimateVariableManager(config.Version);
     }
 
@@ -157,8 +175,9 @@ public class ScriptOrchestrator : IScriptGenerator
             pathManager,
             fileWriterFactory,
             variableManager,
-            pbsLightweight,
-            pbsHeavyweight,
+            pbsMergetime,
+            pbsPreprocessing,
+            pbsRechunk,
             remappingService,
             dependencyResolver
         );
@@ -357,7 +376,7 @@ public class ScriptOrchestrator : IScriptGenerator
         IEnumerable<PBSStorageDirective> storageDirectives =
             PBSStorageHelper.GetStorageDirectives([workDir]);
 
-        await pbsLightweight.WriteHeaderAsync(writer, jobName, storageDirectives);
+        await pbsMergetime.WriteHeaderAsync(writer, jobName, storageDirectives);
         await writer.WriteLineAsync("# File paths.");
         await writer.WriteLineAsync($"IN_DIR=\"{workDir}\"");
         await writer.WriteLineAsync("rm -rf \"${IN_DIR}\"");

@@ -20,16 +20,24 @@ public sealed class StandardVariableProcessorTests
         string inputVariableName = "inputVariableName";
         string outputVariableName = "outputVariableName";
 
+        Mock<IPreprocessingScriptGenerator> mockPreprocessingGenerator = new();
+        mockPreprocessingGenerator
+            .Setup(p => p.WritePreprocessingScriptAsync(
+                It.IsAny<IFileWriter>(),
+                It.IsAny<IPreprocessingOptions>()))
+            .Callback<IFileWriter, IPreprocessingOptions>((writer, options) =>
+            {
+                Assert.Equal(inputVariableName, options.InputMetadata.Name);
+                Assert.Equal(outputVariableName, options.TargetMetadata.Name);
+            })
+            .Returns(Task.CompletedTask);
+
         Mock<IMergetimeScriptGenerator> mergetimeProcessor = new();
         mergetimeProcessor
             .Setup(p => p.WriteMergetimeScriptAsync(
                 It.IsAny<IFileWriter>(),
                 It.IsAny<IMergetimeOptions>()))
-            .Callback((IFileWriter writer, IMergetimeOptions options) =>
-            {
-                Assert.Equal(inputVariableName, options.InputMetadata.Name);
-                Assert.Equal(outputVariableName, options.TargetMetadata.Name);
-            });
+            .Returns(Task.CompletedTask);
 
         Mock<IRechunkScriptGenerator> rechunkProcessor = new();
         rechunkProcessor
@@ -44,6 +52,7 @@ public sealed class StandardVariableProcessorTests
 
         StandardVariableProcessor processor = new StandardVariableProcessor(
             variable,
+            mockPreprocessingGenerator.Object,
             mergetimeProcessor.Object,
             rechunkProcessor.Object
         );
