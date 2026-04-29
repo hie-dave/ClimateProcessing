@@ -53,6 +53,20 @@ public class UnitConverterTests
         Assert.Equal(equivalent, UnitConverter.AreUnitsEquivalent(units1, units0));
     }
 
+    /// <summary>
+    /// mm d-1 -> mm is explicitly supported, but mm d-1 -> kg m-2 is not.
+    /// </summary>
+    /// <param name="from">The source unit.</param>
+    /// <param name="to">The target unit.</param>
+    [Theory]
+    [InlineData("mm d-1", "kg m-2")]
+    public void CanConvertSynonymousUnits(string from, string to)
+    {
+        var result = UnitConverter.AnalyseConversion(from, to);
+        Assert.True(result.RequiresConversion);
+        Assert.NotNull(result.ConversionExpression);
+    }
+
     [Theory]
     [InlineData("K", "degC", 1, "-subc,273.15")]
     [InlineData("kg m-2 s-1", "mm", 24, "-mulc,86400")] // Daily accumulation

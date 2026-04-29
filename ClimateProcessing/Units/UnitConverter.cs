@@ -43,7 +43,6 @@ public static class UnitConverter
         [("%", "1")] = _ => "-divc,100",
         // Divide by seconds in day to get to mm s-1, then multiply by seconds in period to get mm
         [("mm d-1", "mm")] = t => $"-divc,{86400 / t}",
-        [("mm d-1", "kg m-2")] = t => $"-divc,{86400 / t}", // fixme - shouldn't be necessary since mm and kg m-2 are synonyms
         // W -> j: multiply by timestep. j -> W: divide by timestep.
         // Mj -> W: inverse of (multiply by timestep, divide by 1e6) -> divide by (timestep/1e6)
         [("Mj/m2", "W m-2")] = t => $"-divc,{t / 1e6}",
@@ -75,8 +74,8 @@ public static class UnitConverter
         if (ConversionExpressions.TryGetValue(conversionKey, out var conversion))
             return new ConversionResult(true, true, conversion);
 
-        IEnumerable<string> inputSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedInput)).Select(s => s.Key);
-        IEnumerable<string> targetSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedTarget)).Select(s => s.Key);
+        IEnumerable<string> inputSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedInput)).Select(s => s.Key).Append(inputUnits);
+        IEnumerable<string> targetSynonyms = UnitSynonyms.Where(s => s.Value.Contains(normalisedTarget)).Select(s => s.Key).Append(targetUnits);
 
         foreach (string inputSynonym in inputSynonyms)
         {
