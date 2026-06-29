@@ -161,7 +161,9 @@ public partial class Cmip6Dataset : IClimateDataset
         IEnumerable<string> parsed = inputFiles.Select(parseFunc).Distinct();
         if (parsed.Count() > 1)
             throw new ArgumentException($"Input files have inconsistent values for the parsed property: {propertyName}: {string.Join(", ", parsed)}");
-        return parsed.FirstOrDefault() ?? throw new ArgumentException("No input files provided");
+
+        // Guaranteed to have at least one element.
+        return parsed.First();
     }
 
     /// <summary>
