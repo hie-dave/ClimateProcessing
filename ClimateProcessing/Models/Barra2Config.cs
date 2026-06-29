@@ -6,7 +6,7 @@ namespace ClimateProcessing.Models;
 /// <summary>
 /// Contains narclim2-specific CLI options.
 /// </summary>
-[Verb("barra2", HelpText = "Process NARCliM2 data.")]
+[Verb("barra2", HelpText = "Process BARRA2 data.")]
 public class Barra2Config : ProcessingConfig
 {
     [Option("domain", HelpText = "Domains to process. Valid values: AUS-11, AUS-22, AUST-04, AUST-11. Default: process all domains.")]
