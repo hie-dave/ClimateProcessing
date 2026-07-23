@@ -135,14 +135,15 @@ public partial class Cmip6Dataset : IClimateDataset
             throw new NotSupportedException("CMIP6 dataset only supports daily output");
 
         // No reason to return lazily, as this will always be enumerated.
-        List<IVariableProcessor> processors = variables.Keys.Select(v => new StandardVariableProcessor(v))
-		             .Cast<IVariableProcessor>()
-                             .ToList();
+        List<IVariableProcessor> processors = variables.Keys
+            .Select(v => new StandardVariableProcessor(v))
+            .Cast<IVariableProcessor>()
+            .ToList();
 
-            // Calculate temperature from min and max.
-            IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
-            string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
-            MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
+        // Calculate temperature from min and max.
+        IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
+        string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
+        MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
 
 	    processors.Add(new RechunkProcessorDecorator(tempCalculator));
 	    return processors;

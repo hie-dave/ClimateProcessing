@@ -1,5 +1,6 @@
 using ClimateProcessing.Models;
 using ClimateProcessing.Models.Cmip6;
+using ClimateProcessing.Services;
 using ClimateProcessing.Services.Processors;
 using ClimateProcessing.Tests.Mocks;
 using Xunit;
@@ -223,10 +224,11 @@ public class Cmip6DatasetTests : IDisposable
         Cmip6Dataset dataset = CreateDataset();
         TestJobCreationContext context = new();
         context.MutableConfig.OutputTimeStepHours = 24;
+        CreateInputFile(dataset, ClimateVariable.MinTemperature, "x_day_ACCESS-ESM1-5_ssp245_r1i1p1f1_gr_15000101-15001231.nc");
+        CreateInputFile(dataset, ClimateVariable.MinTemperature, "x_day_ACCESS-ESM1-5_ssp245_r1i1p1f1_gr_16000101-16001231.nc");
 
-        List<StandardVariableProcessor> processors = dataset
+        List<IVariableProcessor> processors = dataset
             .GetProcessors(context)
-            .OfType<StandardVariableProcessor>()
             .ToList();
 
         ClimateVariable[] expected =
@@ -237,7 +239,8 @@ public class Cmip6DatasetTests : IDisposable
             ClimateVariable.WindSpeed,
             ClimateVariable.SurfacePressure,
             ClimateVariable.MaxTemperature,
-            ClimateVariable.MinTemperature
+            ClimateVariable.MinTemperature,
+            ClimateVariable.Temperature
         ];
 
         Assert.Equal(expected.Length, processors.Count);
