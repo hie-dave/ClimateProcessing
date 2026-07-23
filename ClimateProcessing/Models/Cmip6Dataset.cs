@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using ClimateProcessing.Models.Cmip6;
 using ClimateProcessing.Services;
 using ClimateProcessing.Services.Processors;
+using ClimateProcessing.Extensions;
 
 namespace ClimateProcessing.Models;
 
@@ -134,8 +135,17 @@ public partial class Cmip6Dataset : IClimateDataset
             throw new NotSupportedException("CMIP6 dataset only supports daily output");
 
         // No reason to return lazily, as this will always be enumerated.
-        return variables.Keys.Select(v => new StandardVariableProcessor(v))
+        List<IVariableProcessor> processors = variables.Keys.Select(v => new StandardVariableProcessor(v))
+		             .Cast<IVariableProcessor>()
                              .ToList();
+
+            // Calculate temperature from min and max.
+            IEnumerable<ClimateVariable> tempDeps = [ClimateVariable.MinTemperature, ClimateVariable.MaxTemperature];
+            string tempFileName = GenerateFileName(context, ClimateVariable.Temperature, ClimateVariable.MinTemperature);
+            MeanProcessor tempCalculator = new MeanProcessor(tempFileName, ClimateVariable.Temperature, tempDeps);
+
+	    processors.Add(new RechunkProcessorDecorator(tempCalculator));
+	    return processors;
     }
 
     /// <inheritdoc />
@@ -223,6 +233,19 @@ public partial class Cmip6Dataset : IClimateDataset
 
         // Parse the date.
         return DateTime.ParseExact(dateStr, "yyyyMMdd", CultureInfo.InvariantCulture);
+    }
+
+    private string GenerateFileName(
+        IJobCreationContext context,
+        ClimateVariable variable,
+        ClimateVariable dependency)
+    {
+        VariableInfo metadata = GetVariableInfo(dependency);
+        string template = GenerateOutputFileName(dependency, metadata);
+        template = Path.GetFileName(template);
+
+        string varName = context.VariableManager.GetOutputRequirements(variable).Name;
+        return template.ReplaceFirst($"{metadata.Name}_", $"{varName}_");
     }
 
     /// <summary>
