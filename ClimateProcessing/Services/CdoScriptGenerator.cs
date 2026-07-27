@@ -63,7 +63,15 @@ public class CdoScriptGenerator : IMergetimeScriptGenerator, IPreprocessingScrip
 
         // Merge files and perform all operations in a single step.
         await writer.WriteLineAsync("log \"Merging files...\"");
-        await writer.WriteLineAsync($"cdo {GetCommonArgs()} mergetime \"${{{inDirVariable}}}\"/*.nc \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync("mapfile -t FILES < <(find \"${IN_DIR}\" -maxdepth 1 -name '*.nc' | sort)");
+        await writer.WriteLineAsync("if [ ${#FILES[@]} -eq 0 ]; then");
+        await writer.WriteLineAsync("    echo \"No input files found in ${IN_DIR}\" >&2");
+        await writer.WriteLineAsync("    exit 1");
+        await writer.WriteLineAsync("elif [ ${#FILES[@]} -eq 1 ]; then");
+        await writer.WriteLineAsync($"    cdo {GetCommonArgs()} copy \"${{FILES[0]}}\" \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync("else");
+        await writer.WriteLineAsync($"    cdo {GetCommonArgs()} mergetime \"${{FILES[@]}}\" \"${{OUT_FILE}}\"");
+        await writer.WriteLineAsync("fi");
         await writer.WriteLineAsync("log \"All files merged successfully.\"");
         await writer.WriteLineAsync();
 

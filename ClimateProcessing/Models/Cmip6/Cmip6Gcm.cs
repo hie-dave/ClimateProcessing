@@ -18,7 +18,12 @@ public enum Cmip6Gcm
     /// <summary>
     /// EC-Earth3.
     /// </summary>
-    ECEarth3
+    ECEarth3,
+
+    /// <summary>
+    /// CNRM-ESM2-1.
+    /// </summary>
+    CnrmEsm21
 }
 
 /// <summary>
@@ -29,6 +34,7 @@ public static class Cmip6GcmExtensions
     private const string accessEsm15 = "ACCESS-ESM1-5";
     private const string norEsm2MM = "NorESM2-MM";
     private const string ecEarth3 = "EC-Earth3";
+    private const string cnrmEsm21 = "CNRM-ESM2-1";
 
     /// <summary>
     /// Convert the specified GCM to its canonical string representation.
@@ -41,11 +47,12 @@ public static class Cmip6GcmExtensions
         Cmip6Gcm.AccessEsm15 => accessEsm15,
         Cmip6Gcm.NorEsm2MM => norEsm2MM,
         Cmip6Gcm.ECEarth3 => ecEarth3,
+        Cmip6Gcm.CnrmEsm21 => cnrmEsm21,
         _ => throw new ArgumentException($"Unknown CMIP6 GCM: {gcm}")
     };
 
     /// <summary>
-    /// Convert a string to a <see cref="Cmip6Experiment"/>.
+    /// Convert a string to a <see cref="Cmip6Gcm"/>.
     /// </summary>
     /// <param name="gcmStr">The string to convert.</param>
     /// <returns></returns>
@@ -55,6 +62,7 @@ public static class Cmip6GcmExtensions
         accessEsm15 => Cmip6Gcm.AccessEsm15,
         norEsm2MM => Cmip6Gcm.NorEsm2MM,
         ecEarth3 => Cmip6Gcm.ECEarth3,
+        cnrmEsm21 => Cmip6Gcm.CnrmEsm21,
         _ => throw new ArgumentException($"Unknown CMIP6 GCM string: {gcmStr}")
     };
 }

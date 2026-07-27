@@ -9,6 +9,7 @@ public class Cmip6EnumTests
     [InlineData(Cmip6Gcm.AccessEsm15, "ACCESS-ESM1-5")]
     [InlineData(Cmip6Gcm.NorEsm2MM, "NorESM2-MM")]
     [InlineData(Cmip6Gcm.ECEarth3, "EC-Earth3")]
+    [InlineData(Cmip6Gcm.CnrmEsm21, "CNRM-ESM2-1")]
     public void Cmip6Gcm_ToString_ReturnsExpectedValue(Cmip6Gcm gcm, string expected)
     {
         Assert.Equal(expected, Cmip6GcmExtensions.ToString(gcm));
@@ -24,6 +25,7 @@ public class Cmip6EnumTests
     [InlineData("ACCESS-ESM1-5", Cmip6Gcm.AccessEsm15)]
     [InlineData("NorESM2-MM", Cmip6Gcm.NorEsm2MM)]
     [InlineData("EC-Earth3", Cmip6Gcm.ECEarth3)]
+    [InlineData("CNRM-ESM2-1", Cmip6Gcm.CnrmEsm21)]
     public void Cmip6Gcm_FromString_ReturnsExpectedValue(string gcm, Cmip6Gcm expected)
     {
         Assert.Equal(expected, Cmip6GcmExtensions.FromString(gcm));
