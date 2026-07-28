@@ -42,6 +42,14 @@ IN_DIR="@#OUTPUT_DIRECTORY#@/tmp/dynamic_mock/tas"
 OUT_FILE="@#OUTPUT_DIRECTORY#@/tmp/dynamic_mock/tas_output.nc"
 
 log "Merging files..."
-cdo -L -O -v -z zip1 mergetime "${IN_DIR}"/*.nc "${OUT_FILE}"
+mapfile -t FILES < <(find "${IN_DIR}" -maxdepth 1 -name '*.nc' | sort)
+if [ ${#FILES[@]} -eq 0 ]; then
+    echo "No input files found in ${IN_DIR}" >&2
+    exit 1
+elif [ ${#FILES[@]} -eq 1 ]; then
+    cdo -L -O -v -z zip1 copy "${FILES[0]}" "${OUT_FILE}"
+else
+    cdo -L -O -v -z zip1 mergetime "${FILES[@]}" "${OUT_FILE}"
+fi
 log "All files merged successfully."
 
