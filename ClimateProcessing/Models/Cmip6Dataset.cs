@@ -134,8 +134,12 @@ public partial class Cmip6Dataset : IClimateDataset
         if (context.Config.OutputTimeStepHours != 24)
             throw new NotSupportedException("CMIP6 dataset only supports daily output");
 
+        IEnumerable<ClimateVariable> vars = variables.Keys;
+        if (!AirPressureAvailable())
+            vars = vars.Except([ClimateVariable.SurfacePressure]);
+
         // No reason to return lazily, as this will always be enumerated.
-        List<IVariableProcessor> processors = variables.Keys
+        List<IVariableProcessor> processors = vars
             .Select(v => new StandardVariableProcessor(v))
             .Cast<IVariableProcessor>()
             .ToList();
@@ -152,10 +156,34 @@ public partial class Cmip6Dataset : IClimateDataset
     /// <inheritdoc />
     public VariableInfo GetVariableInfo(ClimateVariable variable)
     {
+        if (variable == ClimateVariable.SurfacePressure && !AirPressureAvailable())
+            throw new ArgumentException($"Variable {variable} is not available for GCM {Gcm} and experiment {Experiment}");
+
+        if (variable == ClimateVariable.WindSpeed && UseMaxWindAsWindSpeed())
+            return new VariableInfo("sfcWindmax", "m s-1");
+
         if (!variables.TryGetValue(variable, out var info))
             throw new ArgumentException($"Variable {variable} not supported in CMIP6 dataset");
 
         return new VariableInfo(info.name, info.units);
+    }
+
+    /// <summary>
+    /// Determine whether to use the max wind speed as the wind speed variable,
+    /// based on the GCM and experiment.
+    /// </summary>
+    private bool UseMaxWindAsWindSpeed()
+    {
+        return Gcm == Cmip6Gcm.CnrmEsm21 && Experiment == Cmip6Experiment.Ssp119;
+    }
+
+    /// <summary>
+    /// Determine whether air pressure data is available for the current GCM and
+    /// experiment.
+    /// </summary>
+    private bool AirPressureAvailable()
+    {
+        return Experiment == Cmip6Experiment.Ssp245;
     }
 
     /// <summary>
