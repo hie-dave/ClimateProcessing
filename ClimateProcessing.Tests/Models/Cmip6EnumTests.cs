@@ -41,6 +41,7 @@ public class Cmip6EnumTests
     }
 
     [Theory]
+    [InlineData(Cmip6Experiment.Historical, "historical")]
     [InlineData(Cmip6Experiment.Ssp119, "ssp119")]
     [InlineData(Cmip6Experiment.Ssp245, "ssp245")]
     public void Cmip6Experiment_ToString_ReturnsExpectedValue(Cmip6Experiment experiment, string expected)
@@ -55,6 +56,7 @@ public class Cmip6EnumTests
     }
 
     [Theory]
+    [InlineData("historical", Cmip6Experiment.Historical)]
     [InlineData("ssp119", Cmip6Experiment.Ssp119)]
     [InlineData("ssp245", Cmip6Experiment.Ssp245)]
     public void Cmip6Experiment_FromString_ReturnsExpectedValue(string experiment, Cmip6Experiment expected)

@@ -6,6 +6,11 @@ namespace ClimateProcessing.Models.Cmip6;
 public enum Cmip6Experiment
 {
     /// <summary>
+    /// Historical.
+    /// </summary>
+    Historical,
+
+    /// <summary>
     /// SSP1-1.9.
     /// </summary>
     Ssp119,
@@ -20,6 +25,7 @@ public enum Cmip6Experiment
 /// </summary>
 public static class Cmip6ExperimentExtensions
 {
+    private const string historical = "historical";
     private const string ssp119 = "ssp119";
     private const string ssp245 = "ssp245";
 
@@ -31,6 +37,7 @@ public static class Cmip6ExperimentExtensions
     /// <exception cref="ArgumentException">Thrown when the experiment is not a valid <see cref="Cmip6Experiment"/>.</exception>
     public static string ToString(this Cmip6Experiment expt) => expt switch
     {
+        Cmip6Experiment.Historical => historical,
         Cmip6Experiment.Ssp119 => ssp119,
         Cmip6Experiment.Ssp245 => ssp245,
         _ => throw new ArgumentException($"Unknown CMIP6 experiment: {expt}")
@@ -44,8 +51,9 @@ public static class Cmip6ExperimentExtensions
     /// <exception cref="ArgumentException">Thrown when the string is not a valid <see cref="Cmip6Experiment"/>.</exception>
     public static Cmip6Experiment FromString(string str) => str switch
     {
+        historical => Cmip6Experiment.Historical,
         ssp119 => Cmip6Experiment.Ssp119,
         ssp245 => Cmip6Experiment.Ssp245,
-        _ => throw new ArgumentException($"Unknokwn CMIP6 experiment: {str}"),
+        _ => throw new ArgumentException($"Unknown CMIP6 experiment: {str}"),
     };
 }
