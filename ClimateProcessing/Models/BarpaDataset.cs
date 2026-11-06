@@ -60,6 +60,7 @@ public partial class BarpaDataset : IClimateDataset
     private const string activity = "DD";
     private const string institution = "BOM";
     private const string versionRealisation = "v1-r1";
+    private const string version = "latest";
 
     private static readonly IReadOnlyDictionary<ClimateVariable, (string name, string units)> variableMap = new Dictionary<ClimateVariable, (string name, string units)>()
     {
@@ -144,11 +145,17 @@ public partial class BarpaDataset : IClimateDataset
     /// <inheritdoc />
     public string GetInputFilesDirectory(ClimateVariable variable)
     {
-        return Path.Combine(
+        string baseDir = Path.Combine(
             basePath,
             product,
-            project.ToProjectId(),
-            mipEra,
+            project.ToProjectId());
+
+        // .../CMIP6/... only for output project.
+        if (project == BarpaProject.Output)
+            baseDir = Path.Combine(baseDir, mipEra);
+
+        return Path.Combine(
+            baseDir,
             activity,
             domain.ToDomainId(),
             institution,
@@ -159,7 +166,7 @@ public partial class BarpaDataset : IClimateDataset
             versionRealisation,
             frequency.ToFrequencyId(),
             GetVariableInfo(variable).Name,
-            versionRealisation);
+            version);
     }
 
     /// <inheritdoc />

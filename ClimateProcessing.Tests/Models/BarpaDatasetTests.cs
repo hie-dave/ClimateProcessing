@@ -19,42 +19,42 @@ public class BarpaDatasetTests : IDisposable
             BarpaProject.Output, BarpaDomain.Aust04, BarpaGcm.Era5,
             BarpaExperiment.Evaluation, BarpaFrequency.Hourly,
             "AUST-04_ERA5_evaluation_r1i1p1f1_BOM_BARPA-C_v1-r1_1hr",
-            "BARPA/output/CMIP6/DD/AUST-04/BOM/ERA5/evaluation/r1i1p1f1/BARPA-C/v1-r1/1hr/tas/v1-r1",
+            "BARPA/output/CMIP6/DD/AUST-04/BOM/ERA5/evaluation/r1i1p1f1/BARPA-C/v1-r1/1hr/tas/latest",
             "output/AUST-04/ERA5/evaluation/1hr"
         },
         {
             BarpaProject.OutputCmip6, BarpaDomain.Aus15, BarpaGcm.AccessCM2,
             BarpaExperiment.Ssp585, BarpaFrequency.Hourly,
             "AUS-15_ACCESS-CM2_ssp585_r4i1p1f1_BOM_BARPA-R_v1-r1_1hr",
-            "BARPA/output-CMIP6/CMIP6/DD/AUS-15/BOM/ACCESS-CM2/ssp585/r4i1p1f1/BARPA-R/v1-r1/1hr/tas/v1-r1",
+            "BARPA/output-CMIP6/DD/AUS-15/BOM/ACCESS-CM2/ssp585/r4i1p1f1/BARPA-R/v1-r1/1hr/tas/latest",
             "output-CMIP6/AUS-15/ACCESS-CM2/ssp585/1hr"
         },
         {
             BarpaProject.OutputCmip6, BarpaDomain.Aust04, BarpaGcm.AccessEsm15,
             BarpaExperiment.Historical, BarpaFrequency.SixHourly,
             "AUST-04_ACCESS-ESM1-5_historical_r6i1p1f1_BOM_BARPA-C_v1-r1_6hr",
-            "BARPA/output-CMIP6/CMIP6/DD/AUST-04/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-C/v1-r1/6hr/tas/v1-r1",
+            "BARPA/output-CMIP6/DD/AUST-04/BOM/ACCESS-ESM1-5/historical/r6i1p1f1/BARPA-C/v1-r1/6hr/tas/latest",
             "output-CMIP6/AUST-04/ACCESS-ESM1-5/historical/6hr"
         },
         {
             BarpaProject.OutputCmip6, BarpaDomain.Aust15, BarpaGcm.Cesm2,
             BarpaExperiment.Ssp126, BarpaFrequency.Monthly,
             "AUST-15_CESM2_ssp126_r11i1p1f1_BOM_BARPA-R_v1-r1_mon",
-            "BARPA/output-CMIP6/CMIP6/DD/AUST-15/BOM/CESM2/ssp126/r11i1p1f1/BARPA-R/v1-r1/mon/tas/v1-r1",
+            "BARPA/output-CMIP6/DD/AUST-15/BOM/CESM2/ssp126/r11i1p1f1/BARPA-R/v1-r1/mon/tas/latest",
             "output-CMIP6/AUST-15/CESM2/ssp126/mon"
         },
         {
             BarpaProject.CordexCmip6, BarpaDomain.Aus20i, BarpaGcm.ECEarth3,
             BarpaExperiment.Ssp370, BarpaFrequency.ThreeHourly,
-            "AUS-20i_EC-Earth3_ssp370_r1i1p1f1_BOM_BARPA-R_v1-r1_3hr",
-            "BARPA/CORDEX-CMIP6/CMIP6/DD/AUS-20i/BOM/EC-Earth3/ssp370/r1i1p1f1/BARPA-R/v1-r1/3hr/tas/v1-r1",
+            "AUS-20i_EC-Earth3_ssp370_r1i1p1f1_BOM_BARPA-R1-NN_v1-r1_3hr",
+            "BARPA/CORDEX-CMIP6/DD/AUS-20i/BOM/EC-Earth3/ssp370/r1i1p1f1/BARPA-R1-NN/v1-r1/3hr/tas/latest",
             "CORDEX-CMIP6/AUS-20i/EC-Earth3/ssp370/3hr"
         },
         {
             BarpaProject.CordexCmip6, BarpaDomain.Aus20i, BarpaGcm.MpiEsm12HR,
             BarpaExperiment.Historical, BarpaFrequency.Daily,
-            "AUS-20i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R_v1-r1_day",
-            "BARPA/CORDEX-CMIP6/CMIP6/DD/AUS-20i/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R/v1-r1/day/tas/v1-r1",
+            "AUS-20i_MPI-ESM1-2-HR_historical_r1i1p1f1_BOM_BARPA-R1-NN_v1-r1_day",
+            "BARPA/CORDEX-CMIP6/DD/AUS-20i/BOM/MPI-ESM1-2-HR/historical/r1i1p1f1/BARPA-R1-NN/v1-r1/day/tas/latest",
             "CORDEX-CMIP6/AUS-20i/MPI-ESM1-2-HR/historical/day"
         }
     };
@@ -93,8 +93,8 @@ public class BarpaDatasetTests : IDisposable
         Assert.Equal(expectedName, info.Name);
         Assert.Equal(expectedUnits, info.Units);
         string expectedDirectory = Path.Combine(tempDirectory.AbsolutePath,
-            "BARPA", "output-CMIP6", "CMIP6", "DD", "AUS-15", "BOM", "ACCESS-CM2",
-            "historical", "r4i1p1f1", "BARPA-R", "v1-r1", "1hr", expectedName, "v1-r1");
+            "BARPA", "CORDEX-CMIP6", "DD", "AUS-15", "BOM", "ACCESS-CM2",
+            "historical", "r4i1p1f1", "BARPA-R1-NN", "v1-r1", "1hr", expectedName, "latest");
         Assert.Equal(expectedDirectory, dataset.GetInputFilesDirectory(variable));
     }
 
@@ -187,7 +187,7 @@ public class BarpaDatasetTests : IDisposable
         string fileName = dataset.GenerateOutputFileName(
             ClimateVariable.Precipitation, new VariableInfo(outputName, "mm"));
 
-        Assert.Equal($"{outputName}_AUS-15_ACCESS-CM2_historical_r4i1p1f1_BOM_BARPA-R_v1-r1_1hr_199912312330-200101010045.nc",
+        Assert.Equal($"{outputName}_AUS-15_ACCESS-CM2_historical_r4i1p1f1_BOM_BARPA-R1-NN_v1-r1_1hr_199912312330-200101010045.nc",
             fileName);
     }
 
@@ -202,7 +202,7 @@ public class BarpaDatasetTests : IDisposable
         string fileName = dataset.GenerateOutputFileName(
             ClimateVariable.Temperature, new VariableInfo("tas", "K"));
 
-        Assert.Equal($"tas_AUS-15_ACCESS-CM2_historical_r4i1p1f1_BOM_BARPA-R_v1-r1_1hr_{dateRange}.nc",
+        Assert.Equal($"tas_AUS-15_ACCESS-CM2_historical_r4i1p1f1_BOM_BARPA-R1-NN_v1-r1_1hr_{dateRange}.nc",
             fileName);
     }
 
@@ -308,7 +308,7 @@ public class BarpaDatasetTests : IDisposable
     }
 
     private BarpaDataset CreateDataset(
-        BarpaProject project = BarpaProject.OutputCmip6,
+        BarpaProject project = BarpaProject.CordexCmip6,
         BarpaDomain domain = BarpaDomain.Aus15,
         BarpaGcm gcm = BarpaGcm.AccessCM2,
         BarpaExperiment experiment = BarpaExperiment.Historical,

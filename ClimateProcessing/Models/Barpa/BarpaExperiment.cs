@@ -66,7 +66,7 @@ public static class BarpaExperimentExtensions
         }
 
         if (project == BarpaProject.Output)
-            return gcm == BarpaGcm.Era5 && experiment == BarpaExperiment.Evaluation;
+            return gcm == BarpaGcm.Era5;
 
         // output-CMIP6 is a mixed bag.
         if (domain == BarpaDomain.Aus15)

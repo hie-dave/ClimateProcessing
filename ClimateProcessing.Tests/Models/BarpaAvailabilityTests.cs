@@ -37,11 +37,20 @@ public class BarpaAvailabilityTests
     }
 
     [Theory]
+    [InlineData((BarpaProject)999)]
+    [InlineData((BarpaProject)1337)]
+    public void DomainIsValidFor_ThrowsForUnknownProject(BarpaProject project)
+    {
+        foreach (BarpaDomain domain in Enum.GetValues<BarpaDomain>())
+            Assert.Throws<ArgumentOutOfRangeException>(() => domain.IsValidFor(project));
+    }
+
+    [Theory]
     [InlineData(BarpaProject.Output, BarpaDomain.Aust04, "BARPA-C")]
     [InlineData(BarpaProject.OutputCmip6, BarpaDomain.Aus15, "BARPA-R")]
     [InlineData(BarpaProject.OutputCmip6, BarpaDomain.Aust04, "BARPA-C")]
     [InlineData(BarpaProject.OutputCmip6, BarpaDomain.Aust15, "BARPA-R")]
-    [InlineData(BarpaProject.CordexCmip6, BarpaDomain.Aus20i, "BARPA-R")]
+    [InlineData(BarpaProject.CordexCmip6, BarpaDomain.Aus20i, "BARPA-R1-NN")]
     public void GetSource_SelectsRegionalOrConvectionPermittingModel(
         BarpaProject project, BarpaDomain domain, string expected)
     {

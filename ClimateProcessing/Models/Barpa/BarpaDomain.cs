@@ -93,6 +93,9 @@ public static class BarpaDomainExtensions
     /// <returns>The source ID for the given domain and project.</returns>
     public static string GetSource(this BarpaDomain domain, BarpaProject project)
     {
+        if (project == BarpaProject.CordexCmip6)
+            return "BARPA-R1-NN";
+
         if (project == BarpaProject.Output ||
             (project == BarpaProject.OutputCmip6 && domain == BarpaDomain.Aust04))
             return "BARPA-C";
