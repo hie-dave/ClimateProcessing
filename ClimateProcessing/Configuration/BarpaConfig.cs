@@ -16,7 +16,7 @@ public class BarpaConfig : ProcessingConfig
     [Option("domain", HelpText = "Domains to process. Valid values: AUST-04, AUS-15, AUS-20i. Default: process all valid domains for the underlying config.")]
     public IEnumerable<string>? Domains { get; set; }
 
-    [Option("project", HelpText = "Projects to process. Valid values: output, output-CMIP6, cordex-CMIP6. Default: process all valid projects for the underlying config.")]
+    [Option("barpa-project", HelpText = "BARPA projects to process. Valid values: output, output-CMIP6, CORDEX-CMIP6. Default: process all valid projects for the underlying config.")]
     public IEnumerable<string>? Projects { get; set; }
 
     [Option("experiment", HelpText = "Experiments to process. Valid values: historical, ssp126, ssp370, ssp585. Default: process all valid experiments for the underlying config.")]
@@ -76,10 +76,11 @@ public class BarpaConfig : ProcessingConfig
     {
         base.Validate();
 
-        IEnumerable<BarpaGcm> gcms = LiteralGcms();
-        IEnumerable<BarpaDomain> domains = LiteralDomains();
-        IEnumerable<BarpaProject> projects = LiteralProjects();
-        IEnumerable<BarpaExperiment> experiments = LiteralExperiments();
+        // Parse every supplied filter even when another filter is omitted.
+        BarpaGcm[] gcms = LiteralGcms().ToArray();
+        BarpaDomain[] domains = LiteralDomains().ToArray();
+        BarpaProject[] projects = LiteralProjects().ToArray();
+        BarpaExperiment[] experiments = LiteralExperiments().ToArray();
         BarpaFrequency frequency = GetFrequency();
 
         foreach (BarpaProject project in projects)
@@ -105,6 +106,9 @@ public class BarpaConfig : ProcessingConfig
                 }
             }
         }
+
+        if (!CreateDatasets().Any())
+            throw new ArgumentException("No valid BARPA datasets match the requested filters.");
     }
 
     internal IEnumerable<BarpaGcm> GetGcms()

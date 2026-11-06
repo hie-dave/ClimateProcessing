@@ -69,7 +69,7 @@ public static class BarpaFrequencyExtensions
     {
         if (project == BarpaProject.CordexCmip6)
         {
-            return frequency == BarpaFrequency.ThreeHourly ||
+            return frequency == BarpaFrequency.Hourly ||
                    frequency == BarpaFrequency.Daily ||
                    frequency == BarpaFrequency.Monthly;
         }
